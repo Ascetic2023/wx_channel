@@ -607,8 +607,16 @@ function __render_batch_video_list__() {
     var titleDiv = document.createElement('div');
     titleDiv.style.cssText = 'font-size:13px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4;';
     titleDiv.textContent = title;
+    
+    // 如果是直播回放，添加回放标签
+    if (video.type === 'live_replay') {
+      var replayBadge = document.createElement('span');
+      replayBadge.style.cssText = 'display:inline-block;margin-left:6px;background:#fa5151;color:#fff;font-size:10px;padding:2px 4px;border-radius:2px;vertical-align:middle;';
+      replayBadge.textContent = '回放';
+      titleDiv.appendChild(replayBadge);
+    }
     // 如果是直播且不能下载，添加提示
-    if (isLive || !canDownload) {
+    else if (isLive || !canDownload) {
       titleDiv.style.color = '#999';
       var tipSpan = document.createElement('span');
       tipSpan.style.cssText = 'color:#fa5151;font-size:11px;margin-left:6px;';
