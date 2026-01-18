@@ -136,6 +136,20 @@ coverage.html
 *.prof
 *.pprof
 
+# ==================== 发版准备文件 ====================
+# 这些文件仅用于本地发版准备，不需要同步到 GitHub
+LINKS_FIXED.md
+PRE_RELEASE_CHECKLIST.md
+READY_TO_RELEASE.md
+RELEASE_GUIDE.md
+RELEASE_v*.md
+cleanup_old_files.ps1
+GITHUB_RELEASE_STEPS.md
+
+# 临时图片文件
+down.png
+log.png
+
 # ==================== 保留的文件 ====================
 # 确保某些文件被包含（使用 ! 前缀）
 !.gitignore
