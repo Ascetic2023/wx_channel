@@ -217,6 +217,13 @@ func loadFromEnvironment(config *Config) {
 			config.MaxRetries = val
 		}
 	}
+
+	// 端口环境变量
+	if port := os.Getenv("WX_CHANNEL_PORT"); port != "" {
+		if val, err := strconv.Atoi(port); err == nil && val > 0 {
+			config.Port = val
+		}
+	}
 }
 
 // loadFromDatabase 从数据库加载配置（优先级最高）

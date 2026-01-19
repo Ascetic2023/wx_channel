@@ -68,9 +68,9 @@ func TestResolveDownloadDir(t *testing.T) {
 
 // contains 检查字符串是否包含子串
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && 
-		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || 
-		containsMiddle(s, substr)))
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
+		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
+			containsMiddle(s, substr)))
 }
 
 func containsMiddle(s, substr string) bool {
@@ -105,20 +105,36 @@ func TestResolveDownloadDirEdgeCases(t *testing.T) {
 		},
 	}
 
+	baseDir, err := GetBaseDir()
+	if err != nil {
+		t.Fatalf("无法获取基础目录: %v", err)
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ResolveDownloadDir(tt.downloadDir)
-			
+
 			if tt.expectError && err == nil {
 				t.Errorf("ResolveDownloadDir() 期望错误但没有返回错误")
 			}
-			
+
 			if !tt.expectError && err != nil {
 				t.Errorf("ResolveDownloadDir() 意外错误 = %v", err)
 			}
-			
-			if !tt.expectError && !filepath.IsAbs(result) {
-				t.Errorf("ResolveDownloadDir() = %v, 期望绝对路径", result)
+
+			if !tt.expectError {
+				if !filepath.IsAbs(result) {
+					t.Errorf("ResolveDownloadDir() = %v, 期望绝对路径", result)
+				}
+
+				// 验证结果是否正确解析
+				expected := filepath.Join(baseDir, tt.downloadDir)
+				if result != expected {
+					// 尝试 Clean 后比较，因为 filepath.Join 可能会清理路径
+					if filepath.Clean(result) != filepath.Clean(expected) {
+						t.Errorf("ResolveDownloadDir() = %v, 期望 %v", result, expected)
+					}
+				}
 			}
 		})
 	}
