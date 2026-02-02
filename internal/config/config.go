@@ -69,6 +69,13 @@ type Config struct {
 	CloudSecret string `mapstructure:"cloud_secret"`  // 云端通信密钥
 	MachineID   string `mapstructure:"machine_id"`    // 机器学习 ID (用于在云端唯一标识此实例)
 	BindToken   string `mapstructure:"bind_token"`    // 临时绑定码
+
+	// 第二阶段优化配置
+	LoadBalancerStrategy  string `mapstructure:"load_balancer_strategy"`  // 负载均衡策略: roundrobin, leastconn, weighted, random
+	CompressionEnabled    bool   `mapstructure:"compression_enabled"`     // 是否启用数据压缩
+	CompressionThreshold  int    `mapstructure:"compression_threshold"`   // 压缩阈值（字节），小于此值不压缩
+	MetricsEnabled        bool   `mapstructure:"metrics_enabled"`         // 是否启用 Prometheus 监控
+	MetricsPort           int    `mapstructure:"metrics_port"`            // Prometheus 监控端口
 }
 
 var globalConfig *Config
@@ -204,6 +211,13 @@ func setDefaults() {
 	viper.SetDefault("cloud_hub_url", "ws://wx.dongzuren.com/ws/client")
 	viper.SetDefault("cloud_secret", "")
 	viper.SetDefault("machine_id", GetMachineID())
+
+	// 第二阶段优化默认值
+	viper.SetDefault("load_balancer_strategy", "leastconn")
+	viper.SetDefault("compression_enabled", true)
+	viper.SetDefault("compression_threshold", 1024) // 1KB
+	viper.SetDefault("metrics_enabled", true)
+	viper.SetDefault("metrics_port", 9090)
 }
 
 // GetMachineID 获取或生成唯一的机器 ID (稳定硬件特征码)

@@ -17,11 +17,12 @@ const (
 
 // CloudMessage 云端消息包装
 type CloudMessage struct {
-	ID        string          `json:"id"`        // 消息唯一标识
-	Type      MessageType     `json:"type"`      // 消息类型
-	ClientID  string          `json:"client_id"` // 客户端 ID (机器识别码)
-	Payload   json.RawMessage `json:"payload"`   // 载荷
-	Timestamp int64           `json:"timestamp"` // 时间戳
+	ID         string          `json:"id"`                   // 消息唯一标识
+	Type       MessageType     `json:"type"`                 // 消息类型
+	ClientID   string          `json:"client_id"`            // 客户端 ID (机器识别码)
+	Payload    json.RawMessage `json:"payload"`              // 载荷
+	Timestamp  int64           `json:"timestamp"`            // 时间戳
+	Compressed bool            `json:"compressed,omitempty"` // 是否压缩
 }
 
 // HeartbeatPayload 心跳载荷

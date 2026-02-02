@@ -39,19 +39,33 @@ const router = createRouter({
             meta: { requiresAuth: true }
         },
         {
+            path: '/subscriptions',
+            name: 'Subscriptions',
+            component: () => import('../views/Subscriptions.vue'),
+            meta: { requiresAuth: true }
+        },
+        {
+            path: '/subscriptions/:id/videos',
+            name: 'SubscriptionVideos',
+            component: () => import('../views/SubscriptionVideos.vue'),
+            meta: { requiresAuth: true }
+        },
+        {
             path: '/tasks',
             name: 'Tasks',
             component: () => import('../views/Tasks.vue'),
             meta: { requiresAuth: true }
         },
         {
-            component: () => import('../views/NodeDetail.vue'),
-            meta: { requiresAuth: true }
-        },
-        {
             path: '/settings',
             component: () => import('../views/Settings.vue'),
             meta: { layout: 'MainLayout', requiresAuth: true }
+        },
+        {
+            path: '/monitoring',
+            name: 'Monitoring',
+            component: () => import('../views/Monitoring.vue'),
+            meta: { requiresAuth: true }
         },
         {
             path: '/admin',

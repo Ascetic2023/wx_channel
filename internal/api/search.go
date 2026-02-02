@@ -23,12 +23,9 @@ func NewSearchService(hub *websocket.Hub) *SearchService {
 
 // SearchContactRequest 搜索账号请求参数
 type SearchContactRequest struct {
-	Keyword    string `json:"keyword"`
-	Type       int    `json:"type"` // 1=User, 2=Live, 3=Video
-	NextMarker string `json:"next_marker"`
-	Page       int    `json:"page"`
-	PageSize   int    `json:"page_size"`
-	RequestId  string `json:"request_id"`
+	Keyword  string `json:"keyword"`
+	Page     int    `json:"page"`
+	PageSize int    `json:"page_size"`
 }
 
 // SearchContact 搜索账号
@@ -38,8 +35,6 @@ func (s *SearchService) SearchContact(w http.ResponseWriter, r *http.Request) {
 	// 支持 GET 和 POST
 	if r.Method == http.MethodGet {
 		req.Keyword = r.URL.Query().Get("keyword")
-		req.Type, _ = strconv.Atoi(r.URL.Query().Get("type"))
-		req.NextMarker = r.URL.Query().Get("next_marker")
 		req.Page, _ = strconv.Atoi(r.URL.Query().Get("page"))
 		req.PageSize, _ = strconv.Atoi(r.URL.Query().Get("page_size"))
 	} else if r.Method == http.MethodPost {
@@ -69,9 +64,7 @@ func (s *SearchService) SearchContact(w http.ResponseWriter, r *http.Request) {
 
 	// 调用前端 API
 	body := websocket.SearchContactBody{
-		Keyword:    req.Keyword,
-		Type:       req.Type,
-		NextMarker: req.NextMarker,
+		Keyword: req.Keyword,
 	}
 
 	data, err := s.hub.CallAPI("key:channels:contact_list", body, 20*time.Second)
@@ -84,41 +77,11 @@ func (s *SearchService) SearchContact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 解析返回数据以支持分页和精简输出
-	var rawResp struct {
-		Data struct {
-			InfoList   []interface{} `json:"infoList"`
-			ObjectList []interface{} `json:"objectList"`
-			LastBuff   string        `json:"lastBuff"`
-			Continue   int           `json:"continueFlag"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(data, &rawResp); err != nil {
-		// 如果解析失败，回退到返回原始数据
+	// 解析返回数据以支持分页
+	var result interface{}
+	if err := json.Unmarshal(data, &result); err != nil {
 		response.Success(w, json.RawMessage(data))
 		return
-	}
-
-	// 根据请求类型选择返回列表
-	var list []interface{}
-	if req.Type == 1 {
-		// 用户搜索: infoList
-		list = rawResp.Data.InfoList
-	} else {
-		// 直播(2) 或 视频(3): objectList
-		list = rawResp.Data.ObjectList
-	}
-
-	if list == nil {
-		list = make([]interface{}, 0)
-	}
-
-	// 构造精简响应
-	result := map[string]interface{}{
-		"list":        list,
-		"next_marker": rawResp.Data.LastBuff,
-		"has_more":    rawResp.Data.Continue != 0,
 	}
 
 	response.Success(w, result)

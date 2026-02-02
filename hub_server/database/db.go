@@ -44,6 +44,8 @@ func InitDB(path string) error {
 		&models.Task{},
 		&models.Transaction{},
 		&models.Setting{},
+		&models.Subscription{},
+		&models.SubscribedVideo{},
 	)
 	if err != nil {
 		return err

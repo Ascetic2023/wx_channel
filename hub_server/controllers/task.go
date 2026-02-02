@@ -62,7 +62,11 @@ func RemoteCall(hub *ws.Hub) http.HandlerFunc {
 			Data     json.RawMessage `json:"data"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, err.Error(), 400)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"code":    -1,
+				"message": err.Error(),
+			})
 			return
 		}
 
@@ -80,18 +84,30 @@ func RemoteCall(hub *ws.Hub) http.HandlerFunc {
 		if cost > 0 {
 			user, err := database.GetUserByID(userID)
 			if err != nil {
-				http.Error(w, "User not found", http.StatusNotFound)
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"code":    -1,
+					"message": "User not found",
+				})
 				return
 			}
 
 			if user.Credits < cost {
-				http.Error(w, "Insufficient credits", http.StatusPaymentRequired) // 402
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"code":    -1,
+					"message": "Insufficient credits",
+				})
 				return
 			}
 
 			// Deduct credits
 			if err := database.AddCredits(userID, -cost); err != nil {
-				http.Error(w, "Transaction failed", http.StatusInternalServerError)
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"code":    -1,
+					"message": "Transaction failed",
+				})
 				return
 			}
 
@@ -106,12 +122,57 @@ func RemoteCall(hub *ws.Hub) http.HandlerFunc {
 			})
 		}
 
-		resp, err := hub.Call(userID, req.ClientID, req.Action, req.Data, 30*time.Second)
+		// Auto-detect online client if not provided
+		clientID := req.ClientID
+		if clientID == "" {
+			user, err := database.GetUserByID(userID)
+			if err != nil || len(user.Devices) == 0 {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"code":    -1,
+					"message": "No device found",
+				})
+				return
+			}
+
+			// Find first online device
+			for _, device := range user.Devices {
+				if device.Status == "online" {
+					clientID = device.ID
+					break
+				}
+			}
+
+			if clientID == "" {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"code":    -1,
+					"message": "No online device found",
+				})
+				return
+			}
+		}
+
+		// 根据不同的操作设置不同的超时时间
+		timeout := 30 * time.Second
+		switch req.Action {
+		case "search_channels", "search_videos":
+			timeout = 2 * time.Minute // 搜索操作最多 2 分钟
+		case "download_video":
+			timeout = 5 * time.Minute // 下载操作最多 5 分钟
+		case "api_call":
+			// api_call 使用 60 秒超时
+			timeout = 60 * time.Second
+		}
+
+		resp, err := hub.Call(userID, clientID, req.Action, req.Data, timeout)
 		if err != nil {
-			// Refund on failure?
-			// For search, maybe not. For download, yes.
-			// Currently, we charge upfront.
-			http.Error(w, err.Error(), 500)
+			// Return JSON error instead of plain text
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"code":    -1,
+				"message": err.Error(),
+			})
 			return
 		}
 

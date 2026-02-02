@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -11,13 +12,16 @@ import (
 
 func PlayVideo(w http.ResponseWriter, r *http.Request) {
 	targetURL := r.URL.Query().Get("url")
+	fmt.Printf("[PlayVideo] Target URL: %s\n", targetURL)
 	if targetURL == "" {
+		fmt.Println("[PlayVideo] Error: url parameter required")
 		http.Error(w, "url parameter required", http.StatusBadRequest)
 		return
 	}
 
 	// 获取可选的解密密钥
 	decryptKeyStr := r.URL.Query().Get("key")
+	fmt.Printf("[PlayVideo] Decrypt key string: %s\n", decryptKeyStr)
 	var decryptKey uint64
 	var needsDecryption bool
 
@@ -25,15 +29,18 @@ func PlayVideo(w http.ResponseWriter, r *http.Request) {
 		var err error
 		decryptKey, err = strconv.ParseUint(decryptKeyStr, 10, 64)
 		if err != nil {
+			fmt.Printf("[PlayVideo] Error: failed to parse decrypt key: %v\n", err)
 			http.Error(w, "invalid decryption key", http.StatusBadRequest)
 			return
 		}
 		needsDecryption = true
+		fmt.Printf("[PlayVideo] Decrypt key parsed: %d\n", decryptKey)
 	}
 
 	// 创建上游请求
 	req, err := http.NewRequest(r.Method, targetURL, nil)
 	if err != nil {
+		fmt.Printf("[PlayVideo] Error: failed to create request: %v\n", err)
 		http.Error(w, "invalid URL", http.StatusBadRequest)
 		return
 	}

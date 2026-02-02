@@ -1,9 +1,14 @@
 package ws
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"io"
+	"log"
 	"sync"
 	"time"
+	"wx_channel/hub_server/cache"
 	"wx_channel/hub_server/database"
 	"wx_channel/hub_server/models"
 	"wx_channel/hub_server/services"
@@ -40,6 +45,9 @@ func (c *Client) ReadPump() {
 		c.Conn.Close()
 	}()
 
+	// 设置最大消息大小为 10MB
+	c.Conn.SetReadLimit(10 * 1024 * 1024)
+
 	for {
 		_, message, err := c.Conn.ReadMessage()
 		if err != nil {
@@ -60,6 +68,16 @@ func (c *Client) handleMessage(msg CloudMessage) {
 	c.LastSeen = time.Now()
 	c.mu.Unlock()
 
+	// 如果消息被压缩，先解压
+	if msg.Compressed {
+		decompressed, err := c.decompressData(msg.Payload)
+		if err == nil {
+			msg.Payload = decompressed
+		} else {
+			log.Printf("解压失败: %v", err)
+		}
+	}
+
 	switch msg.Type {
 	case MsgTypeHeartbeat:
 		var p HeartbeatPayload
@@ -69,7 +87,6 @@ func (c *Client) handleMessage(msg CloudMessage) {
 		c.Version = p.Version
 		c.mu.Unlock()
 
-		// DB: Update heartbeat info
 		database.UpsertNode(&models.Node{
 			ID:       c.ID,
 			Hostname: p.Hostname,
@@ -78,14 +95,30 @@ func (c *Client) handleMessage(msg CloudMessage) {
 			LastSeen: time.Now(),
 		})
 
+	case "metrics":
+		var payload struct {
+			Metrics string `json:"metrics"`
+		}
+		if err := json.Unmarshal(msg.Payload, &payload); err == nil {
+			cache.UpdateClientMetrics(c.ID, payload.Metrics)
+		}
+
 	case MsgTypeResponse:
 		var resp ResponsePayload
-		if err := json.Unmarshal(msg.Payload, &resp); err == nil {
-			c.respMu.RLock()
-			ch, ok := c.respChannels[resp.RequestID]
-			c.respMu.RUnlock()
-			if ok {
-				ch <- resp
+		if err := json.Unmarshal(msg.Payload, &resp); err != nil {
+			log.Printf("解析响应失败: %v", err)
+			return
+		}
+		
+		c.respMu.RLock()
+		ch, ok := c.respChannels[resp.RequestID]
+		c.respMu.RUnlock()
+		
+		if ok {
+			select {
+			case ch <- resp:
+			default:
+				log.Printf("响应通道已满: RequestID=%s", resp.RequestID)
 			}
 		}
 
@@ -96,7 +129,6 @@ func (c *Client) handleMessage(msg CloudMessage) {
 		if err := json.Unmarshal(msg.Payload, &payload); err == nil {
 			err := services.ProcessBindRequest(c.ID, payload.Token)
 
-			// Notify client of result
 			response := map[string]interface{}{
 				"type":    "bind_result",
 				"success": err == nil,
@@ -109,6 +141,17 @@ func (c *Client) handleMessage(msg CloudMessage) {
 			c.WriteMessage(respBytes)
 		}
 	}
+}
+
+// decompressData 解压数据
+func (c *Client) decompressData(data []byte) ([]byte, error) {
+	reader, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+
+	return io.ReadAll(reader)
 }
 
 func (c *Client) WriteMessage(msg []byte) error {

@@ -18,8 +18,14 @@
       <router-link to="/search" active-class="!text-primary !bg-primary/5" class="px-4 py-2 rounded-lg text-slate-600 font-medium text-sm transition-all hover:text-primary hover:bg-slate-50">
         搜索
       </router-link>
+      <router-link to="/subscriptions" active-class="!text-primary !bg-primary/5" class="px-4 py-2 rounded-lg text-slate-600 font-medium text-sm transition-all hover:text-primary hover:bg-slate-50">
+        订阅
+      </router-link>
       <router-link to="/tasks" active-class="!text-primary !bg-primary/5" class="px-4 py-2 rounded-lg text-slate-600 font-medium text-sm transition-all hover:text-primary hover:bg-slate-50">
         任务
+      </router-link>
+      <router-link to="/monitoring" active-class="!text-primary !bg-primary/5" class="px-4 py-2 rounded-lg text-slate-600 font-medium text-sm transition-all hover:text-primary hover:bg-slate-50">
+        监控
       </router-link>
       <router-link to="/settings" active-class="!text-primary !bg-primary/5" class="px-4 py-2 rounded-lg text-slate-600 font-medium text-sm transition-all hover:text-primary hover:bg-slate-50">
         设置

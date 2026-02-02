@@ -72,7 +72,15 @@
                  <img :src="getHeadUrl(item)" class="w-full h-full rounded-full object-cover" @error="onImgError">
               </div>
               <div class="font-bold text-lg mb-1 text-text group-hover:text-primary transition-colors line-clamp-1">{{ getNickname(item) }}</div>
-              <div class="text-xs text-text-muted line-clamp-2 px-2">{{ stripHtml(item.signature || item.contact?.signature || '暂无签名') }}</div>
+              <div class="text-xs text-text-muted line-clamp-2 px-2 mb-3">{{ stripHtml(item.signature || item.contact?.signature || '暂无签名') }}</div>
+              <!-- Subscribe Button -->
+              <button 
+                  @click.stop="toggleSubscribe(item)" 
+                  :disabled="subscribing"
+                  class="px-4 py-2 rounded-xl text-sm font-semibold shadow-neu-btn transition-all disabled:opacity-50"
+                  :class="isSubscribed(item) ? 'bg-bg text-text-muted hover:text-red-500' : 'bg-primary text-white hover:bg-primary-dark'">
+                  {{ subscribing ? '处理中...' : (isSubscribed(item) ? '已订阅' : '订阅') }}
+              </button>
           </div>
 
           <!-- Video Cover (Type 3) -->
@@ -184,6 +192,16 @@ const searchSessionId = ref('')
 // Video player state
 const playerUrl = ref('')
 const playerTitle = ref('')
+
+// Subscription state
+const subscriptions = ref([])
+const subscribing = ref(false)
+
+// Load subscriptions on mount
+import { onMounted } from 'vue'
+onMounted(() => {
+    loadSubscriptions()
+})
 
 // Watch searchType to auto-trigger search
 // When switching tabs, we must reset the list and search again with the new type
@@ -387,6 +405,82 @@ const getVideoTitle = (item) => {
 
 const getLikeCount = (item) => {
     return item.likeCount || item.objectExtend?.favInfo?.fingerlikeFavCount || 0
+}
+
+
+// Subscription functions
+const loadSubscriptions = async () => {
+    try {
+        const token = localStorage.getItem('token')
+        if (!token) return
+        
+        const res = await fetch('/api/subscriptions', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        const data = await res.json()
+        if (data.code === 0) {
+            subscriptions.value = data.data || []
+        }
+    } catch (e) {
+        console.error('Failed to load subscriptions:', e)
+    }
+}
+
+const isSubscribed = (item) => {
+    const username = item.username || item.contact?.username
+    return subscriptions.value.some(sub => sub.wx_username === username)
+}
+
+const toggleSubscribe = async (item) => {
+    subscribing.value = true
+    try {
+        const username = item.username || item.contact?.username
+        const token = localStorage.getItem('token')
+        
+        if (isSubscribed(item)) {
+            // Unsubscribe
+            const subscription = subscriptions.value.find(sub => sub.wx_username === username)
+            if (!subscription) return
+            
+            const res = await fetch(`/api/subscriptions/${subscription.id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            
+            if (res.ok) {
+                subscriptions.value = subscriptions.value.filter(sub => sub.id !== subscription.id)
+            } else {
+                alert('取消订阅失败')
+            }
+        } else {
+            // Subscribe
+            const res = await fetch('/api/subscriptions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    wx_username: username,
+                    wx_nickname: getNickname(item),
+                    wx_head_url: getHeadUrl(item),
+                    wx_signature: stripHtml(item.signature || item.contact?.signature || '')
+                })
+            })
+            
+            const data = await res.json()
+            if (data.code === 0) {
+                subscriptions.value.push(data.data)
+            } else {
+                alert('订阅失败: ' + (data.message || ''))
+            }
+        }
+    } catch (e) {
+        console.error('Subscription error:', e)
+        alert('操作失败: ' + e.message)
+    } finally {
+        subscribing.value = false
+    }
 }
 
 const getLiveCover = (item) => {

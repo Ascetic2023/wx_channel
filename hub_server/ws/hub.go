@@ -27,12 +27,17 @@ func NewHub() *Hub {
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
 		upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool { return true },
+			CheckOrigin:     func(r *http.Request) bool { return true },
+			ReadBufferSize:  10 * 1024 * 1024, // 10MB 读缓冲
+			WriteBufferSize: 10 * 1024 * 1024, // 10MB 写缓冲
 		},
 	}
 }
 
 func (h *Hub) Run() {
+	// 启动僵尸连接清理器
+	go h.cleanupStaleConnections()
+
 	for {
 		select {
 		case client := <-h.Register:
@@ -66,6 +71,33 @@ func (h *Hub) Run() {
 	}
 }
 
+// cleanupStaleConnections 清理僵尸连接
+func (h *Hub) cleanupStaleConnections() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		h.mu.RLock()
+		staleClients := []*Client{}
+		threshold := time.Now().Add(-2 * time.Minute) // 2分钟无心跳视为僵尸连接
+
+		for _, client := range h.Clients {
+			client.mu.Lock()
+			if client.LastSeen.Before(threshold) {
+				staleClients = append(staleClients, client)
+			}
+			client.mu.Unlock()
+		}
+		h.mu.RUnlock()
+
+		// 清理僵尸连接
+		for _, client := range staleClients {
+			log.Printf("清理僵尸连接: %s (最后心跳: %v)", client.ID, client.LastSeen)
+			h.Unregister <- client
+		}
+	}
+}
+
 func (h *Hub) RemoveClient(id string) {
 	h.mu.Lock()
 	if c, ok := h.Clients[id]; ok {
@@ -73,6 +105,13 @@ func (h *Hub) RemoveClient(id string) {
 		delete(h.Clients, id)
 	}
 	h.mu.Unlock()
+}
+
+// GetClient safely retrieves a client by ID
+func (h *Hub) GetClient(id string) *Client {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.Clients[id]
 }
 
 func (h *Hub) Call(userID uint, clientID string, action string, data interface{}, timeout time.Duration) (ResponsePayload, error) {
@@ -112,6 +151,7 @@ func (h *Hub) Call(userID uint, clientID string, action string, data interface{}
 	c.respChannels[reqID] = respChan
 	c.respMu.Unlock()
 
+	// 确保清理资源
 	defer func() {
 		c.respMu.Lock()
 		delete(c.respChannels, reqID)
@@ -122,11 +162,15 @@ func (h *Hub) Call(userID uint, clientID string, action string, data interface{}
 
 	if err := c.WriteMessage(msgData); err != nil {
 		database.UpdateTaskResult(task.ID, "failed", "", err.Error())
-		return ResponsePayload{}, err
+		return ResponsePayload{}, fmt.Errorf("发送消息失败: %w", err)
 	}
 
 	select {
-	case resp := <-respChan:
+	case resp, ok := <-respChan:
+		if !ok {
+			database.UpdateTaskResult(task.ID, "failed", "", "响应通道已关闭")
+			return ResponsePayload{}, fmt.Errorf("响应通道已关闭")
+		}
 		resBytes, _ := json.Marshal(resp.Data)
 		status := "success"
 		if !resp.Success {
@@ -136,7 +180,7 @@ func (h *Hub) Call(userID uint, clientID string, action string, data interface{}
 		return resp, nil
 	case <-time.After(timeout):
 		database.UpdateTaskResult(task.ID, "timeout", "", "request timeout")
-		return ResponsePayload{}, fmt.Errorf("timeout")
+		return ResponsePayload{}, fmt.Errorf("请求超时")
 	}
 }
 

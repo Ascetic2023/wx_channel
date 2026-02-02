@@ -12,11 +12,12 @@ const (
 )
 
 type CloudMessage struct {
-	ID        string          `json:"id"`
-	Type      MessageType     `json:"type"`
-	ClientID  string          `json:"client_id"`
-	Payload   json.RawMessage `json:"payload"`
-	Timestamp int64           `json:"timestamp"`
+	ID         string          `json:"id"`
+	Type       MessageType     `json:"type"`
+	ClientID   string          `json:"client_id"`
+	Payload    json.RawMessage `json:"payload"`
+	Timestamp  int64           `json:"timestamp"`
+	Compressed bool            `json:"compressed,omitempty"`
 }
 
 type HeartbeatPayload struct {

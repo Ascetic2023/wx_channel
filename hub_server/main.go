@@ -12,6 +12,8 @@ import (
 	"wx_channel/hub_server/middleware"
 	"wx_channel/hub_server/services"
 	"wx_channel/hub_server/ws"
+
+	"github.com/gorilla/mux"
 )
 
 func main() {
@@ -40,41 +42,53 @@ func main() {
 		}
 	}
 
-	// 4. 注册路由
+	// 4. 创建路由器
+	router := mux.NewRouter()
 
 	// WebSocket 接入点
-	http.HandleFunc("/ws/client", withRecovery(hub.ServeWs))
+	router.HandleFunc("/ws/client", withRecovery(hub.ServeWs))
 
 	// Auth API
-	http.HandleFunc("/api/auth/register", withRecovery(controllers.Register))
-	http.HandleFunc("/api/auth/login", withRecovery(controllers.Login))
+	router.HandleFunc("/api/auth/register", withRecovery(controllers.Register))
+	router.HandleFunc("/api/auth/login", withRecovery(controllers.Login))
 
 	// Protected API (Need Auth)
-	http.HandleFunc("/api/auth/profile", withRecovery(middleware.AuthRequired(controllers.GetProfile)))
-	http.HandleFunc("/api/device/bind_token", withRecovery(middleware.AuthRequired(controllers.GenerateBindToken)))
-	http.HandleFunc("/api/device/list", withRecovery(middleware.AuthRequired(controllers.GetUserDevices)))
+	router.HandleFunc("/api/auth/profile", withRecovery(middleware.AuthRequired(controllers.GetProfile)))
+	router.HandleFunc("/api/device/bind_token", withRecovery(middleware.AuthRequired(controllers.GenerateBindToken)))
+	router.HandleFunc("/api/device/list", withRecovery(middleware.AuthRequired(controllers.GetUserDevices)))
+
+	// Subscription API
+	router.HandleFunc("/api/subscriptions", withRecovery(middleware.AuthRequired(controllers.CreateSubscription))).Methods("POST")
+	router.HandleFunc("/api/subscriptions", withRecovery(middleware.AuthRequired(controllers.GetSubscriptions))).Methods("GET")
+	router.HandleFunc("/api/subscriptions/{id}/fetch", withRecovery(middleware.AuthRequired(controllers.FetchVideos(hub)))).Methods("POST")
+	router.HandleFunc("/api/subscriptions/{id}/videos", withRecovery(middleware.AuthRequired(controllers.GetSubscriptionVideos))).Methods("GET")
+	router.HandleFunc("/api/subscriptions/{id}", withRecovery(middleware.AuthRequired(controllers.DeleteSubscription))).Methods("DELETE")
 
 	// Admin API
-	http.HandleFunc("/api/admin/users", withRecovery(middleware.AuthRequired(middleware.AdminRequired(controllers.GetUserList))))
-	http.HandleFunc("/api/admin/stats", withRecovery(middleware.AuthRequired(middleware.AdminRequired(controllers.GetStats))))
+	router.HandleFunc("/api/admin/users", withRecovery(middleware.AuthRequired(middleware.AdminRequired(controllers.GetUserList))))
+	router.HandleFunc("/api/admin/stats", withRecovery(middleware.AuthRequired(middleware.AdminRequired(controllers.GetStats))))
 
 	// Public API (For now, keeping them public or applying OptionalAuth as needed)
-	// 在未来阶段，这些应该加上 AuthRequired
-	http.HandleFunc("/api/clients", withRecovery(controllers.GetNodes))
+	router.HandleFunc("/api/clients", withRecovery(controllers.GetNodes))
 
-	http.HandleFunc("/api/tasks", withRecovery(middleware.AuthRequired(controllers.GetTasks)))
-	http.HandleFunc("/api/tasks/detail", withRecovery(middleware.AuthRequired(controllers.GetTaskDetail)))
-	http.HandleFunc("/api/call", withRecovery(middleware.AuthRequired(controllers.RemoteCall(hub))))
+	router.HandleFunc("/api/tasks", withRecovery(middleware.AuthRequired(controllers.GetTasks)))
+	router.HandleFunc("/api/tasks/detail", withRecovery(middleware.AuthRequired(controllers.GetTaskDetail)))
+	router.HandleFunc("/api/remoteCall", withRecovery(middleware.AuthRequired(controllers.RemoteCall(hub))))
+	router.HandleFunc("/api/call", withRecovery(middleware.AuthRequired(controllers.RemoteCall(hub))))
 
 	// Video Play
-	http.HandleFunc("/api/video/play", withRecovery(controllers.PlayVideo))
+	router.HandleFunc("/api/video/play", withRecovery(controllers.PlayVideo))
+
+	// Metrics API
+	router.HandleFunc("/api/metrics/summary", withRecovery(middleware.AuthRequired(controllers.GetMetricsSummary)))
+	router.HandleFunc("/api/metrics/timeseries", withRecovery(middleware.AuthRequired(controllers.GetTimeSeriesData)))
 
 	// 静态文件服务 - Vue SPA 支持
-	// 优先服务 frontend/dist 目录下的静态资源
 	fs := http.FileServer(http.Dir("frontend/dist"))
-	http.HandleFunc("/", withRecovery(func(w http.ResponseWriter, r *http.Request) {
+	router.PathPrefix("/").HandlerFunc(withRecovery(func(w http.ResponseWriter, r *http.Request) {
 		// 如果是 API 调用或 WebSocket，不处理
 		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/ws/") {
+			http.NotFound(w, r)
 			return
 		}
 
@@ -91,5 +105,5 @@ func main() {
 	}))
 
 	log.Println("Hub Server started on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":8080", router))
 }

@@ -31,6 +31,8 @@ import (
 	"wx_channel/internal/websocket"
 	"wx_channel/pkg/certificate"
 	"wx_channel/pkg/proxy"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // App 结构体，用于保存依赖项和状态
@@ -295,6 +297,11 @@ func (app *App) Run() {
 	wsPort := app.Port + 1
 	go app.startWebSocketServer(wsPort)
 
+	// 启动 Prometheus 监控服务器（如果启用）
+	if app.Cfg.MetricsEnabled {
+		go app.startMetricsServer()
+	}
+
 	app.CloudConnector = cloud.NewConnector(app.Cfg, app.WSHub)
 	app.CloudConnector.Start()
 
@@ -326,7 +333,7 @@ func (app *App) Run() {
 		}
 
 		if _, err := client.Get("https://sunny.io/"); err != nil {
-			utils.Warn("💡 注意：代理自检未通过 (但不影响远程管理和解析)")
+			utils.Warn("💡 注意：代理自检未通过")
 		} else {
 			utils.Info("✓ 证书与网络链路正常")
 		}
@@ -474,5 +481,18 @@ func (app *App) startWebSocketServer(wsPort int) {
 	utils.Info("🔌 WebSocket服务已启动，端口: %d", wsPort)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		utils.Warn("WebSocket服务启动失败: %v", err)
+	}
+}
+
+// startMetricsServer 启动 Prometheus 监控服务器
+func (app *App) startMetricsServer() {
+	metricsAddr := fmt.Sprintf(":%d", app.Cfg.MetricsPort)
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+	
+	utils.Info("✓ Prometheus 监控已启动: http://localhost%s/metrics", metricsAddr)
+	
+	if err := http.ListenAndServe(metricsAddr, mux); err != nil {
+		utils.LogError("Prometheus 监控服务器启动失败: %v", err)
 	}
 }

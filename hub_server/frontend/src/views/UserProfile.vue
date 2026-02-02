@@ -1,18 +1,26 @@
 <template>
   <div class="min-h-screen bg-bg p-8 lg:p-12 font-sans text-text">
     <header class="flex justify-between items-start mb-12">
-      <div class="flex items-center gap-6">
+      <div class="flex items-center gap-6 flex-1">
           <button class="w-12 h-12 rounded-full bg-bg shadow-neu-btn flex items-center justify-center text-text hover:text-primary active:shadow-neu-btn-active transition-all" @click="goBack">
             ←
           </button>
-          <div class="flex items-center gap-4" v-if="author">
+          <div class="flex items-center gap-4 flex-1" v-if="author">
              <div class="w-16 h-16 rounded-full bg-bg shadow-neu-sm p-1">
                 <img :src="author.headUrl || placeholderImg" class="w-full h-full rounded-full object-cover" @error="onImgError">
              </div>
-             <div>
+             <div class="flex-1">
                 <h2 class="font-serif font-bold text-2xl text-text mb-1">{{ author.nickname }} 的动态</h2>
                 <p class="text-text-muted text-sm max-w-md">{{ author.signature || '暂无签名' }}</p>
              </div>
+             <!-- Subscribe Button -->
+             <button 
+                 @click="toggleSubscribe" 
+                 :disabled="subscribing"
+                 class="px-6 py-3 rounded-xl font-semibold shadow-neu-btn transition-all disabled:opacity-50 whitespace-nowrap"
+                 :class="isSubscribed ? 'bg-bg text-text-muted hover:text-red-500' : 'bg-primary text-white hover:bg-primary-dark'">
+                 {{ subscribing ? '处理中...' : (isSubscribed ? '已订阅' : '订阅') }}
+             </button>
           </div>
       </div>
       <div v-if="client" class="px-4 py-2 rounded-xl bg-bg shadow-neu-sm border border-white/50 text-primary font-medium flex items-center gap-2">
@@ -98,6 +106,11 @@ const loadingVideos = ref(false)
 const videos = ref([])
 const playerUrl = ref('')
 
+// Subscription state
+const isSubscribed = ref(false)
+const subscribing = ref(false)
+const subscriptionId = ref(null)
+
 const lastVideoMarker = ref('')
 const hasMoreVideos = ref(false)
 
@@ -112,6 +125,7 @@ onMounted(() => {
             signature: q.signature || ''
         }
         fetchVideos(false)
+        checkSubscriptionStatus()
     } else {
         alert("无效的用户参数")
         router.push('/search')
@@ -277,5 +291,79 @@ const closePlayer = () => {
 
 const onImgError = (e) => {
   e.target.src = placeholderImg
+}
+
+// Subscription functions
+const checkSubscriptionStatus = async () => {
+    try {
+        const token = localStorage.getItem('token')
+        if (!token) return
+        
+        const res = await fetch('/api/subscriptions', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        const data = await res.json()
+        if (data.code === 0) {
+            const subscription = (data.data || []).find(sub => sub.wx_username === author.value.username)
+            if (subscription) {
+                isSubscribed.value = true
+                subscriptionId.value = subscription.id
+            }
+        }
+    } catch (e) {
+        console.error('Failed to check subscription status:', e)
+    }
+}
+
+const toggleSubscribe = async () => {
+    subscribing.value = true
+    try {
+        const token = localStorage.getItem('token')
+        
+        if (isSubscribed.value) {
+            // Unsubscribe
+            if (!subscriptionId.value) return
+            
+            const res = await fetch(`/api/subscriptions/${subscriptionId.value}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            
+            if (res.ok) {
+                isSubscribed.value = false
+                subscriptionId.value = null
+            } else {
+                alert('取消订阅失败')
+            }
+        } else {
+            // Subscribe
+            const res = await fetch('/api/subscriptions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    wx_username: author.value.username,
+                    wx_nickname: author.value.nickname,
+                    wx_head_url: author.value.headUrl,
+                    wx_signature: author.value.signature
+                })
+            })
+            
+            const data = await res.json()
+            if (data.code === 0) {
+                isSubscribed.value = true
+                subscriptionId.value = data.data.id
+            } else {
+                alert('订阅失败: ' + (data.message || ''))
+            }
+        }
+    } catch (e) {
+        console.error('Subscription error:', e)
+        alert('操作失败: ' + e.message)
+    } finally {
+        subscribing.value = false
+    }
 }
 </script>
