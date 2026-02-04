@@ -17,12 +17,14 @@
   --color-card-bg: #FFFFFF;
   /* Pure White for cards */
 
-  /* Serenity Shadows: Soft, Diffused, Non-Neumorphic */
-  --shadow-neu: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
-  /* Soft drop shadow */
-  --shadow-neu-sm: 0 4px 12px -4px rgba(0, 0, 0, 0.05);
+  /* Serenity Shadows: Soft, Diffused, Unified */
+  --shadow-card: 0 2px 8px rgba(16, 185, 129, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+  /* 统一的卡片阴影 - 淡绿色调 */
+  --shadow-neu: 0 2px 8px rgba(16, 185, 129, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+  /* 与 card 保持一致 */
+  --shadow-neu-sm: 0 1px 4px rgba(16, 185, 129, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-neu-pressed: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
-  --shadow-neu-btn: 0 10px 20px -10px rgba(16, 185, 129, 0.4);
+  --shadow-neu-btn: 0 4px 12px rgba(16, 185, 129, 0.3);
   /* Green glow for buttons */
   --shadow-neu-btn-active: inset 0 2px 4px 0 rgba(0, 0, 0, 0.1);
 }

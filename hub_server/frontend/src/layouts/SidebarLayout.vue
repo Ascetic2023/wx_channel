@@ -25,7 +25,7 @@
       </header>
 
       <!-- 主内容 -->
-      <main class="flex-1 overflow-y-auto">
+      <main class="flex-1 overflow-y-auto bg-green-50/30">
         <slot></slot>
       </main>
     </div>
