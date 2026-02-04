@@ -5,57 +5,51 @@
         <span class="text-xs uppercase tracking-wider text-text-muted">Connected to</span>
         <strong>{{ client.hostname }}</strong>
       </div>
+      <div v-else class="px-4 py-2 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-700 text-sm flex items-center gap-2">
+        <span>⚡ 自动选择设备</span>
+      </div>
     </header>
 
-    <!-- Client Selector if none selected -->
-    <div v-if="!client" class="p-12 text-center bg-white rounded-[2rem] shadow-card">
-      <p class="text-text-muted mb-4">请先选择一个操作目标</p>
-      <router-link to="/dashboard" class="inline-block px-6 py-3 rounded-full bg-bg shadow-neu-btn text-primary font-semibold hover:text-primary-dark transition-all active:shadow-neu-btn-active">
-          前往在线终端
-      </router-link>
-    </div>
-
-    <div v-else>
-      <!-- Search Box & Type Selector -->
-      <div class="flex flex-col gap-4 mb-12 p-6 bg-white rounded-[2rem] shadow-card"
-         <!-- Type Selector -->
-        <div class="flex gap-4 px-2">
-            <label class="flex items-center gap-2 cursor-pointer">
-                <input type="radio" v-model.number="searchType" :value="1" class="accent-primary">
-                <span :class="{'text-primary font-bold': searchType===1, 'text-text-muted': searchType!==1}">找人</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-                <input type="radio" v-model.number="searchType" :value="3" class="accent-primary">
-                <span :class="{'text-primary font-bold': searchType===3, 'text-text-muted': searchType!==3}">找视频</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-                <input type="radio" v-model.number="searchType" :value="2" class="accent-primary">
-                <span :class="{'text-primary font-bold': searchType===2, 'text-text-muted': searchType!==2}">找直播</span>
-            </label>
-        </div>
-
-        <div class="flex gap-4 items-center">
-            <input 
-            v-model="keyword" 
-            type="text" 
-            class="flex-1 bg-transparent border-none outline-none text-lg px-2 text-text placeholder-text-muted/50" 
-            placeholder="输入关键词..."
-            @keyup.enter="handleSearch(false)"
-            >
-            <button 
-                class="px-8 py-3 rounded-full bg-primary text-white font-semibold shadow-lg shadow-primary/30 hover:bg-primary-dark transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                @click="handleSearch(false)" 
-                :disabled="searching"
-            >
-            <Search v-if="!searching" class="w-5 h-5" />
-            <div v-else class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            <span>{{ searching ? '搜索中...' : '开始搜索' }}</span>
-            </button>
-        </div>
+    <!-- Search Box & Type Selector -->
+    <div class="flex flex-col gap-4 mb-12 p-6 bg-white rounded-[2rem] shadow-card">
+      <!-- Type Selector -->
+      <div class="flex gap-4 px-2">
+          <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" v-model.number="searchType" :value="1" class="accent-primary">
+              <span :class="{'text-primary font-bold': searchType===1, 'text-text-muted': searchType!==1}">找人</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" v-model.number="searchType" :value="3" class="accent-primary">
+              <span :class="{'text-primary font-bold': searchType===3, 'text-text-muted': searchType!==3}">找视频</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" v-model.number="searchType" :value="2" class="accent-primary">
+              <span :class="{'text-primary font-bold': searchType===2, 'text-text-muted': searchType!==2}">找直播</span>
+          </label>
       </div>
 
-      <!-- Results Grid -->
-      <div v-if="results.length > 0" class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-6">
+      <div class="flex gap-4 items-center">
+          <input 
+          v-model="keyword" 
+          type="text" 
+          class="flex-1 bg-transparent border-none outline-none text-lg px-2 text-text placeholder-text-muted/50" 
+          placeholder="输入关键词..."
+          @keyup.enter="handleSearch(false)"
+          >
+          <button 
+              class="px-8 py-3 rounded-full bg-primary text-white font-semibold shadow-lg shadow-primary/30 hover:bg-primary-dark transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              @click="handleSearch(false)" 
+              :disabled="searching"
+          >
+          <Search v-if="!searching" class="w-5 h-5" />
+          <div v-else class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+          <span>{{ searching ? '搜索中...' : '开始搜索' }}</span>
+          </button>
+      </div>
+    </div>
+
+    <!-- Results Grid -->
+    <div v-if="results.length > 0" class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-6">
         <div 
           v-for="(item, idx) in results" 
           :key="idx" 
@@ -133,21 +127,20 @@
              </div>
           </div>
 
-        </div>
       </div>
-      
-      
-      <!-- No More Results Notice for Live (Type 2) -->
-      <div v-if="searchType === 2 && results.length > 0 && !searching" class="text-center mt-12 mb-8">
-          <p class="text-text-muted text-sm">直播搜索不支持分页，已显示全部结果</p>
-      </div>
+    </div>
+    
+    
+    <!-- No More Results Notice for Live (Type 2) -->
+    <div v-if="searchType === 2 && results.length > 0 && !searching" class="text-center mt-12 mb-8">
+        <p class="text-text-muted text-sm">直播搜索不支持分页，已显示全部结果</p>
+    </div>
 
-      <!-- Load More Button (Hidden for Type 2) -->
-      <div v-if="hasMoreSearch && searchType !== 2" class="text-center mt-12 mb-8">
-          <button class="px-8 py-3 rounded-full bg-bg shadow-neu-btn text-text-muted font-medium hover:text-primary transition-all active:shadow-neu-btn-active disabled:opacity-50" @click="handleSearch(true)" :disabled="searching">
-              {{ searching ? '加载中...' : '加载更多' }}
-          </button>
-      </div>
+    <!-- Load More Button (Hidden for Type 2) -->
+    <div v-if="hasMoreSearch && searchType !== 2" class="text-center mt-12 mb-8">
+        <button class="px-8 py-3 rounded-full bg-bg shadow-neu-btn text-text-muted font-medium hover:text-primary transition-all active:shadow-neu-btn-active disabled:opacity-50" @click="handleSearch(true)" :disabled="searching">
+            {{ searching ? '加载中...' : '加载更多' }}
+        </button>
     </div>
     
     <!-- Video Player Modal -->
@@ -213,7 +206,7 @@ watch(searchType, (newVal) => {
 })
 
 const handleSearch = async (loadMore = false) => {
-  if (!keyword.value || !client.value) return
+  if (!keyword.value) return
   searching.value = true
   if (!loadMore) {
       results.value = []
@@ -307,10 +300,6 @@ const openDetail = async (item) => {
 }
 
 const resolveVideoUrl = async (item) => {
-    if (!client.value) {
-        throw new Error('未连接终端')
-    }
-    
     // Get video details via feed_profile API
     const objectId = item.objectId || item.id
     const nonceId = item.objectNonceId || item.nonceId
