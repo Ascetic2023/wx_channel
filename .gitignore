@@ -71,6 +71,7 @@ $RECYCLE.BIN/
 # Visual Studio Code
 .vscode/
 *.code-workspace
+.agent
 
 # GoLand / IntelliJ IDEA
 .idea/
@@ -143,7 +144,6 @@ PRE_RELEASE_CHECKLIST.md
 READY_TO_RELEASE.md
 RELEASE_GUIDE.md
 RELEASE_v*.md
-cleanup_old_files.ps1
 GITHUB_RELEASE_STEPS.md
 
 # 临时图片文件

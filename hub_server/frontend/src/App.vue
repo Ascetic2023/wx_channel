@@ -3,10 +3,13 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import MainLayout from './layouts/MainLayout.vue'
 import AuthLayout from './layouts/AuthLayout.vue'
+import SidebarLayout from './layouts/SidebarLayout.vue'
 
 const route = useRoute()
 const layout = computed(() => {
-  return route.meta.layout === 'Auth' ? AuthLayout : MainLayout
+  if (route.meta.layout === 'Auth') return AuthLayout
+  if (route.meta.layout === 'Sidebar') return SidebarLayout
+  return MainLayout
 })
 </script>
 
