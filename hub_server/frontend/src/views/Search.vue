@@ -179,7 +179,8 @@ const keyword = ref('')
 const searchType = ref(3) // Default to Video
 const searching = ref(false)
 const results = ref([])
-const placeholderImg = 'https://via.placeholder.com/100'
+// 使用 data URI 避免外部请求和混合内容问题
+const placeholderImg = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect fill="%23f1f5f9" width="100" height="100"/%3E%3Ctext x="50" y="50" font-family="sans-serif" font-size="14" fill="%2394a3b8" text-anchor="middle" dominant-baseline="middle"%3E暂无图片%3C/text%3E%3C/svg%3E'
 
 const lastSearchBuffer = ref('')
 const hasMoreSearch = ref(false)
