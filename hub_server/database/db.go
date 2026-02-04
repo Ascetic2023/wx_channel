@@ -86,6 +86,26 @@ func UpdateNodeBinding(id string, userID uint) error {
 	}).Error
 }
 
+// GetNodeByID retrieves a node by its ID
+func GetNodeByID(id string) (*models.Node, error) {
+	var node models.Node
+	err := DB.First(&node, "id = ?", id).Error
+	return &node, err
+}
+
+// UnbindNode removes the binding between a node and user
+func UnbindNode(id string) error {
+	return DB.Model(&models.Node{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"user_id":     0,
+		"bind_status": false,
+	}).Error
+}
+
+// DeleteNode permanently deletes a node from the database
+func DeleteNode(id string) error {
+	return DB.Delete(&models.Node{}, "id = ?", id).Error
+}
+
 func CreateTask(task *models.Task) error {
 	return DB.Create(task).Error
 }

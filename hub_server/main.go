@@ -56,6 +56,8 @@ func main() {
 	router.HandleFunc("/api/auth/profile", withRecovery(middleware.AuthRequired(controllers.GetProfile)))
 	router.HandleFunc("/api/device/bind_token", withRecovery(middleware.AuthRequired(controllers.GenerateBindToken)))
 	router.HandleFunc("/api/device/list", withRecovery(middleware.AuthRequired(controllers.GetUserDevices)))
+	router.HandleFunc("/api/device/unbind", withRecovery(middleware.AuthRequired(controllers.UnbindDevice))).Methods("POST")
+	router.HandleFunc("/api/device/delete", withRecovery(middleware.AuthRequired(controllers.DeleteDevice))).Methods("POST")
 
 	// Subscription API
 	router.HandleFunc("/api/subscriptions", withRecovery(middleware.AuthRequired(controllers.CreateSubscription))).Methods("POST")
