@@ -5,8 +5,8 @@
     
     <!-- 主内容区域 - 添加左边距为侧边栏宽度 -->
     <div class="flex-1 flex flex-col overflow-hidden ml-64">
-      <!-- 顶部栏（可选，用于显示用户信息等） -->
-      <header class="bg-bg shadow-neu-sm px-8 py-4 flex items-center justify-between">
+      <!-- 顶部栏 - 固定在顶部 -->
+      <header class="bg-white shadow-sm px-8 py-4 flex items-center justify-between sticky top-0 z-40">
         <div>
           <h1 class="text-2xl font-bold text-slate-800">{{ pageTitle }}</h1>
           <p class="text-sm text-slate-500">{{ pageDescription }}</p>
