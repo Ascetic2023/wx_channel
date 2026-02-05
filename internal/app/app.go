@@ -222,6 +222,7 @@ func (app *App) Run() {
 		assets.EventbusJS,
 		assets.UtilsJS,
 		assets.APIClientJS,
+		assets.KeepAliveJS,
 		app.Version,
 	)
 
@@ -492,14 +493,13 @@ func (app *App) startMetricsServer() {
 	metricsAddr := fmt.Sprintf(":%d", app.Cfg.MetricsPort)
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
-	
+
 	utils.Info("✓ Prometheus 监控已启动: http://localhost%s/metrics", metricsAddr)
-	
+
 	if err := http.ListenAndServe(metricsAddr, mux); err != nil {
 		utils.LogError("Prometheus 监控服务器启动失败: %v", err)
 	}
 }
-
 
 // configureLoadBalancer 配置负载均衡选择器
 func (app *App) configureLoadBalancer() {

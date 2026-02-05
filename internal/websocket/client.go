@@ -11,7 +11,7 @@ import (
 
 // Client 表示一个 WebSocket 客户端连接
 type Client struct {
-	ID             string          // 客户端 ID
+	ID             string // 客户端 ID
 	Conn           *websocket.Conn
 	send           chan []byte
 	hub            *Hub

@@ -73,14 +73,14 @@ func UpsertNode(node *models.Node) error {
 
 	// Update existing fields, but preserve created_at, UserID and BindStatus
 	updates := map[string]interface{}{
-		"hostname":  node.Hostname,
-		"version":   node.Version,
-		"ip":        node.IP,
-		"status":    node.Status,
-		"last_seen": node.LastSeen,
+		"hostname":   node.Hostname,
+		"version":    node.Version,
+		"ip":         node.IP,
+		"status":     node.Status,
+		"last_seen":  node.LastSeen,
 		"updated_at": time.Now(),
 	}
-	
+
 	// Only update UserID and BindStatus if they are set in the new node
 	if node.UserID != 0 {
 		updates["user_id"] = node.UserID
@@ -230,41 +230,40 @@ func UpdateUserRole(userID uint, role string) error {
 func DeleteUser(userID uint) error {
 	// 开始事务
 	tx := DB.Begin()
-	
+
 	// 删除用户的设备
 	if err := tx.Where("user_id = ?", userID).Delete(&models.Node{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
-	
+
 	// 删除用户的任务
 	if err := tx.Where("user_id = ?", userID).Delete(&models.Task{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
-	
+
 	// 删除用户的交易记录
 	if err := tx.Where("user_id = ?", userID).Delete(&models.Transaction{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
-	
+
 	// 删除用户的订阅
 	if err := tx.Where("user_id = ?", userID).Delete(&models.Subscription{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
-	
+
 	// 删除用户
 	if err := tx.Delete(&models.User{}, userID).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
-	
+
 	// 提交事务
 	return tx.Commit().Error
 }
-
 
 // GetAllDevices returns all devices in the system
 func GetAllDevices() ([]models.Node, error) {
@@ -279,12 +278,12 @@ func GetAllTasks() ([]models.Task, int64, error) {
 	var count int64
 
 	DB.Model(&models.Task{}).Count(&count)
-	
+
 	// Select only summary headers to reduce payload size
 	err := DB.Select("id", "type", "node_id", "user_id", "status", "error", "created_at", "updated_at").
 		Order("created_at desc").
 		Find(&tasks).Error
-	
+
 	return tasks, count, err
 }
 
@@ -306,7 +305,7 @@ func GetAllSubscriptions() ([]map[string]interface{}, error) {
 	for i, sub := range subscriptions {
 		var videoCount int64
 		DB.Model(&models.SubscribedVideo{}).Where("subscription_id = ?", sub.ID).Count(&videoCount)
-		
+
 		result[i] = map[string]interface{}{
 			"id":          sub.ID,
 			"user_id":     sub.UserID,
@@ -317,7 +316,7 @@ func GetAllSubscriptions() ([]map[string]interface{}, error) {
 			"updated_at":  sub.UpdatedAt,
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -325,19 +324,37 @@ func GetAllSubscriptions() ([]map[string]interface{}, error) {
 func DeleteSubscription(id uint) error {
 	// 开始事务
 	tx := DB.Begin()
-	
+
 	// 删除订阅的视频
 	if err := tx.Where("subscription_id = ?", id).Delete(&models.SubscribedVideo{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
-	
+
 	// 删除订阅
 	if err := tx.Delete(&models.Subscription{}, id).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
-	
+
 	// 提交事务
 	return tx.Commit().Error
+}
+
+// GetSetting retrieves a setting value by key
+func GetSetting(key string) (string, error) {
+	var setting models.Setting
+	err := DB.Where("key = ?", key).First(&setting).Error
+	if err != nil {
+		return "", err
+	}
+	return setting.Value, nil
+}
+
+// SetSetting creates or updates a setting
+func SetSetting(key, value string) error {
+	return DB.Save(&models.Setting{
+		Key:   key,
+		Value: value,
+	}).Error
 }

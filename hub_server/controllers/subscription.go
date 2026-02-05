@@ -97,17 +97,28 @@ func FetchVideos(hub *ws.Hub) http.HandlerFunc {
 		vars := mux.Vars(r)
 		subID, err := strconv.ParseUint(vars["id"], 10, 32)
 		if err != nil {
-			http.Error(w, "Invalid subscription ID", http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"code":    -1,
+				"message": "Invalid subscription ID",
+			})
 			return
 		}
 
 		// Get subscription
 		var subscription models.Subscription
 		if err := database.DB.Where("id = ? AND user_id = ?", subID, userID).First(&subscription).Error; err != nil {
+			w.Header().Set("Content-Type", "application/json")
 			if err == gorm.ErrRecordNotFound {
-				http.Error(w, "Subscription not found", http.StatusNotFound)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"code":    -1,
+					"message": "Subscription not found",
+				})
 			} else {
-				http.Error(w, "Database error", http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"code":    -1,
+					"message": "Database error",
+				})
 			}
 			return
 		}
@@ -115,7 +126,11 @@ func FetchVideos(hub *ws.Hub) http.HandlerFunc {
 		// Get current user's devices to find an active client
 		user, err := database.GetUserByID(userID)
 		if err != nil || len(user.Devices) == 0 {
-			http.Error(w, "No device connected", http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"code":    -1,
+				"message": "No device connected",
+			})
 			return
 		}
 
@@ -129,7 +144,11 @@ func FetchVideos(hub *ws.Hub) http.HandlerFunc {
 		}
 
 		if clientID == "" {
-			http.Error(w, "No online device found", http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"code":    -1,
+				"message": "No online device found",
+			})
 			return
 		}
 
@@ -150,14 +169,22 @@ func FetchVideos(hub *ws.Hub) http.HandlerFunc {
 			}, 30*time.Second)
 
 			if err != nil {
-				http.Error(w, fmt.Sprintf("Failed to fetch videos: %v", err), http.StatusInternalServerError)
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"code":    -1,
+					"message": fmt.Sprintf("Failed to fetch videos: %v", err),
+				})
 				return
 			}
 
 			// Parse response data
 			var responseData map[string]interface{}
 			if err := json.Unmarshal(response.Data, &responseData); err != nil {
-				http.Error(w, "Failed to parse response", http.StatusInternalServerError)
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"code":    -1,
+					"message": "Failed to parse response",
+				})
 				return
 			}
 

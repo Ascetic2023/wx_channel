@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"wx_channel/internal/utils"
@@ -71,11 +72,11 @@ type Config struct {
 	BindToken   string `mapstructure:"bind_token"`    // 临时绑定码
 
 	// 第二阶段优化配置
-	LoadBalancerStrategy  string `mapstructure:"load_balancer_strategy"`  // 负载均衡策略: roundrobin, leastconn, weighted, random
-	CompressionEnabled    bool   `mapstructure:"compression_enabled"`     // 是否启用数据压缩
-	CompressionThreshold  int    `mapstructure:"compression_threshold"`   // 压缩阈值（字节），小于此值不压缩
-	MetricsEnabled        bool   `mapstructure:"metrics_enabled"`         // 是否启用 Prometheus 监控
-	MetricsPort           int    `mapstructure:"metrics_port"`            // Prometheus 监控端口
+	LoadBalancerStrategy string `mapstructure:"load_balancer_strategy"` // 负载均衡策略: roundrobin, leastconn, weighted, random
+	CompressionEnabled   bool   `mapstructure:"compression_enabled"`    // 是否启用数据压缩
+	CompressionThreshold int    `mapstructure:"compression_threshold"`  // 压缩阈值（字节），小于此值不压缩
+	MetricsEnabled       bool   `mapstructure:"metrics_enabled"`        // 是否启用 Prometheus 监控
+	MetricsPort          int    `mapstructure:"metrics_port"`           // Prometheus 监控端口
 }
 
 var globalConfig *Config
@@ -222,7 +223,7 @@ func setDefaults() {
 
 // GetMachineID 获取或生成唯一的机器 ID (稳定硬件特征码)
 func GetMachineID() string {
-	// 尝试从配置文件读取已保存的 machine_id
+	// 1. 尝试从配置文件读取已保存的 machine_id
 	if viper.IsSet("machine_id") {
 		savedID := viper.GetString("machine_id")
 		if savedID != "" && savedID != "GetMachineID()" {
@@ -230,13 +231,111 @@ func GetMachineID() string {
 		}
 	}
 
-	// 获取所有物理网卡的 MAC 地址并排序
+	// 2. 生成新的 machine_id
+	newID := generateHardwareID()
+
+	// 3. 保存到 viper 配置（内存中）
+	viper.Set("machine_id", newID)
+
+	// 4. 手动更新配置文件，只添加/更新 machine_id 字段
+	configFile := viper.ConfigFileUsed()
+	if configFile == "" {
+		configFile = "config.yaml"
+	}
+
+	// 尝试读取现有配置文件
+	existingContent, err := os.ReadFile(configFile)
+	if err != nil {
+		// 配置文件不存在，创建精简版配置
+		simpleConfig := fmt.Sprintf(`# wx_channel 配置文件
+# 只包含常用配置项，其他配置将使用合理的默认值
+
+# === 核心配置 ===
+port: 2025                    # 服务端口
+download_dir: downloads       # 下载目录
+
+# === 云端管理 ===
+cloud_hub_url: ws://wx.dongzuren.com/ws/client
+cloud_secret: ""
+
+# === 设备标识 ===
+# 自动生成，用于在云端唯一标识此设备，请勿手动修改
+machine_id: %s
+
+# === 性能配置（可选）===
+download_concurrency: 5       # 下载并发数，可根据网络情况调整
+`, newID)
+
+		if err := os.WriteFile(configFile, []byte(simpleConfig), 0644); err != nil {
+			fmt.Printf("Warning: Failed to create config file: %v\n", err)
+		} else {
+			fmt.Printf("Created simplified config file with device ID: %s\n", configFile)
+		}
+		return newID
+	}
+
+	// 配置文件已存在，检查是否已有 machine_id
+	lines := strings.Split(string(existingContent), "\n")
+	machineIDExists := false
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "machine_id:") {
+			// 更新现有的 machine_id
+			lines[i] = fmt.Sprintf("machine_id: %s", newID)
+			machineIDExists = true
+			break
+		}
+	}
+
+	if !machineIDExists {
+		// 添加 machine_id 到配置文件
+		// 查找合适的位置插入（在 cloud_secret 之后）
+		insertIndex := -1
+		for i, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(line), "cloud_secret:") {
+				insertIndex = i + 1
+				break
+			}
+		}
+
+		if insertIndex == -1 {
+			// 如果找不到 cloud_secret，添加到文件末尾
+			lines = append(lines, "", "# === 设备标识 ===")
+			lines = append(lines, "# 自动生成，用于在云端唯一标识此设备，请勿手动修改")
+			lines = append(lines, fmt.Sprintf("machine_id: %s", newID))
+		} else {
+			// 在 cloud_secret 之后插入
+			newLines := make([]string, 0, len(lines)+3)
+			newLines = append(newLines, lines[:insertIndex]...)
+			newLines = append(newLines, "")
+			newLines = append(newLines, "# === 设备标识 ===")
+			newLines = append(newLines, "# 自动生成，用于在云端唯一标识此设备，请勿手动修改")
+			newLines = append(newLines, fmt.Sprintf("machine_id: %s", newID))
+			newLines = append(newLines, lines[insertIndex:]...)
+			lines = newLines
+		}
+	}
+
+	// 写回配置文件
+	updatedContent := strings.Join(lines, "\n")
+	if err := os.WriteFile(configFile, []byte(updatedContent), 0644); err != nil {
+		fmt.Printf("Warning: Failed to update config file: %v\n", err)
+	} else {
+		fmt.Printf("Device ID persisted to config file: %s\n", configFile)
+	}
+
+	return newID
+}
+
+// generateHardwareID 生成基于硬件的唯一ID
+func generateHardwareID() string {
+	// 改进：获取所有网卡，不管是否激活，然后排序
 	var macAddrs []string
 	interfaces, err := net.Interfaces()
 	if err == nil {
 		for _, iface := range interfaces {
-			// 排除虚拟网卡、回环地址和未激活的网卡
-			if iface.Flags&net.FlagLoopback == 0 && iface.Flags&net.FlagUp != 0 && iface.HardwareAddr != nil {
+			// 只排除回环地址，不排除未激活的网卡
+			// 这样即使网卡被禁用/启用，也不会影响ID生成
+			if iface.Flags&net.FlagLoopback == 0 && iface.HardwareAddr != nil {
 				addr := iface.HardwareAddr.String()
 				if addr != "" && addr != "00:00:00:00:00:00" {
 					macAddrs = append(macAddrs, addr)
@@ -245,16 +344,16 @@ func GetMachineID() string {
 		}
 	}
 
-	// 排序 MAC 地址，确保稳定性
+	// 排序所有MAC地址，确保稳定性
 	if len(macAddrs) > 0 {
-		// 简单排序，选择字典序最小的
-		minMAC := macAddrs[0]
-		for _, mac := range macAddrs {
-			if mac < minMAC {
+		// 使用字典序排序
+		var minMAC string
+		for i, mac := range macAddrs {
+			if i == 0 || mac < minMAC {
 				minMAC = mac
 			}
 		}
-		
+
 		// 使用最小的 MAC 地址生成 ID
 		hostname, _ := os.Hostname()
 		raw := fmt.Sprintf("%s-%s-%s", minMAC, hostname, runtime.GOOS)
@@ -267,7 +366,7 @@ func GetMachineID() string {
 	if hostname == "" {
 		hostname = "unknown"
 	}
-	
+
 	raw := fmt.Sprintf("%s-%s", hostname, runtime.GOOS)
 	hash := md5.Sum([]byte(raw))
 	return fmt.Sprintf("HOST-%x", hash[:4])
