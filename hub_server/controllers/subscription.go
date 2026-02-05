@@ -124,22 +124,26 @@ func FetchVideos(hub *ws.Hub) http.HandlerFunc {
 		}
 
 		// Get current user's devices to find an active client
-		user, err := database.GetUserByID(userID)
-		if err != nil || len(user.Devices) == 0 {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"code":    -1,
-				"message": "No device connected",
-			})
-			return
-		}
-
-		// Use first online device
+		// If no device bound to user, try to find any online device
 		var clientID string
-		for _, device := range user.Devices {
-			if device.Status == "online" {
-				clientID = device.ID
-				break
+		
+		user, err := database.GetUserByID(userID)
+		if err == nil && len(user.Devices) > 0 {
+			// Use first online device bound to user
+			for _, device := range user.Devices {
+				if device.Status == "online" {
+					clientID = device.ID
+					break
+				}
+			}
+		}
+		
+		// If no bound device found, try to find any online device (auto-select)
+		if clientID == "" {
+			// Get all online nodes
+			var nodes []models.Node
+			if err := database.DB.Where("status = ?", "online").Find(&nodes).Error; err == nil && len(nodes) > 0 {
+				clientID = nodes[0].ID
 			}
 		}
 
