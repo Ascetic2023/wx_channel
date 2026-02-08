@@ -1586,6 +1586,18 @@ func validateVideoPlayTargetURL(rawURL string) (string, error) {
 	return u.String(), nil
 }
 
+func newVideoProxyHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout: 0, // 不设置超时，支持长时间流式传输
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if _, err := validateVideoPlayTargetURL(req.URL.String()); err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+}
+
 // HandleVideoPlay 处理 GET /api/video/play - 远程视频流式播放（支持加密解密）
 // 参数:
 //   - url: 视频源 URL（必需）
@@ -1642,9 +1654,7 @@ func (h *ConsoleAPIHandler) HandleVideoPlay(w http.ResponseWriter, r *http.Reque
 	}
 
 	// 发起上游请求
-	client := &http.Client{
-		Timeout: 0, // 不设置超时，支持长时间流式传输
-	}
+	client := newVideoProxyHTTPClient()
 	upstreamResp, err := client.Do(upstreamReq)
 	if err != nil {
 		h.sendError(w, r, http.StatusBadGateway, "failed to fetch video: "+err.Error())

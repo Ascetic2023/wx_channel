@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -221,5 +222,24 @@ func TestParseJSON_BodyTooLarge(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "request body too large") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestVideoProxyHTTPClient_CheckRedirect(t *testing.T) {
+	client := newVideoProxyHTTPClient()
+	if client.CheckRedirect == nil {
+		t.Fatalf("CheckRedirect should not be nil")
+	}
+
+	blockedURL, _ := url.Parse("http://127.0.0.1/video.mp4")
+	blockedReq := &http.Request{URL: blockedURL}
+	if err := client.CheckRedirect(blockedReq, nil); err == nil {
+		t.Fatalf("expected redirect validation error for localhost target")
+	}
+
+	allowedURL, _ := url.Parse("https://example.com/video.mp4")
+	allowedReq := &http.Request{URL: allowedURL}
+	if err := client.CheckRedirect(allowedReq, nil); err != nil {
+		t.Fatalf("unexpected redirect validation error: %v", err)
 	}
 }
