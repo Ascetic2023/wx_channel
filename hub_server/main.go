@@ -17,6 +17,10 @@ import (
 )
 
 func main() {
+	if err := middleware.InitJWTSecretFromEnv(); err != nil {
+		log.Fatalf("Invalid JWT secret configuration: %v", err)
+	}
+
 	// 1. 初始化数据库
 	if err := database.InitDB("hub_server.db"); err != nil {
 		log.Fatalf("Failed to init database: %v", err)
@@ -46,18 +50,18 @@ func main() {
 	router := mux.NewRouter()
 
 	// WebSocket 接入点
-	router.HandleFunc("/ws/client", withRecovery(hub.ServeWs))
+	router.HandleFunc("/ws/client", withRecovery(hub.ServeWs)).Methods("GET")
 
 	// Auth API
-	router.HandleFunc("/api/auth/register", withRecovery(controllers.Register))
-	router.HandleFunc("/api/auth/login", withRecovery(controllers.Login))
+	router.HandleFunc("/api/auth/register", withRecovery(controllers.Register)).Methods("POST")
+	router.HandleFunc("/api/auth/login", withRecovery(controllers.Login)).Methods("POST")
 
 	// Protected API (Need Auth)
-	router.HandleFunc("/api/auth/profile", withRecovery(middleware.AuthRequired(controllers.GetProfile)))
+	router.HandleFunc("/api/auth/profile", withRecovery(middleware.AuthRequired(controllers.GetProfile))).Methods("GET")
 	router.HandleFunc("/api/user/change-password", withRecovery(middleware.AuthRequired(controllers.ChangePassword))).Methods("POST")
 	router.HandleFunc("/api/user/stats", withRecovery(middleware.AuthRequired(controllers.GetUserStats))).Methods("GET")
-	router.HandleFunc("/api/device/bind_token", withRecovery(middleware.AuthRequired(controllers.GenerateBindToken)))
-	router.HandleFunc("/api/device/list", withRecovery(middleware.AuthRequired(controllers.GetUserDevices)))
+	router.HandleFunc("/api/device/bind_token", withRecovery(middleware.AuthRequired(controllers.GenerateBindToken))).Methods("POST")
+	router.HandleFunc("/api/device/list", withRecovery(middleware.AuthRequired(controllers.GetUserDevices))).Methods("GET")
 	router.HandleFunc("/api/device/unbind", withRecovery(middleware.AuthRequired(controllers.UnbindDevice))).Methods("POST")
 	router.HandleFunc("/api/device/delete", withRecovery(middleware.AuthRequired(controllers.DeleteDevice))).Methods("POST")
 	router.HandleFunc("/api/device/rename", withRecovery(middleware.AuthRequired(controllers.RenameDevice))).Methods("POST")
@@ -73,8 +77,8 @@ func main() {
 	router.HandleFunc("/api/subscriptions/{id}", withRecovery(middleware.AuthRequired(controllers.DeleteSubscription))).Methods("DELETE")
 
 	// Admin API
-	router.HandleFunc("/api/admin/users", withRecovery(middleware.AuthRequired(middleware.AdminRequired(controllers.GetUserList))))
-	router.HandleFunc("/api/admin/stats", withRecovery(middleware.AuthRequired(middleware.AdminRequired(controllers.GetStats))))
+	router.HandleFunc("/api/admin/users", withRecovery(middleware.AuthRequired(middleware.AdminRequired(controllers.GetUserList)))).Methods("GET")
+	router.HandleFunc("/api/admin/stats", withRecovery(middleware.AuthRequired(middleware.AdminRequired(controllers.GetStats)))).Methods("GET")
 	router.HandleFunc("/api/admin/user/credits", withRecovery(middleware.AuthRequired(middleware.AdminRequired(controllers.UpdateUserCredits)))).Methods("POST")
 	router.HandleFunc("/api/admin/user/role", withRecovery(middleware.AuthRequired(middleware.AdminRequired(controllers.UpdateUserRole)))).Methods("POST")
 	router.HandleFunc("/api/admin/user/{id}", withRecovery(middleware.AuthRequired(middleware.AdminRequired(controllers.DeleteUser)))).Methods("DELETE")
@@ -86,20 +90,19 @@ func main() {
 	router.HandleFunc("/api/admin/subscriptions", withRecovery(middleware.AuthRequired(middleware.AdminRequired(controllers.GetAllSubscriptions)))).Methods("GET")
 	router.HandleFunc("/api/admin/subscription/{id}", withRecovery(middleware.AuthRequired(middleware.AdminRequired(controllers.AdminDeleteSubscription)))).Methods("DELETE")
 
-	// Public API (For now, keeping them public or applying OptionalAuth as needed)
-	router.HandleFunc("/api/clients", withRecovery(controllers.GetNodes))
+	router.HandleFunc("/api/clients", withRecovery(middleware.AuthRequired(controllers.GetNodes))).Methods("GET")
 
-	router.HandleFunc("/api/tasks", withRecovery(middleware.AuthRequired(controllers.GetTasks)))
-	router.HandleFunc("/api/tasks/detail", withRecovery(middleware.AuthRequired(controllers.GetTaskDetail)))
-	router.HandleFunc("/api/remoteCall", withRecovery(middleware.AuthRequired(controllers.RemoteCall(hub))))
-	router.HandleFunc("/api/call", withRecovery(middleware.AuthRequired(controllers.RemoteCall(hub))))
+	router.HandleFunc("/api/tasks", withRecovery(middleware.AuthRequired(controllers.GetTasks))).Methods("GET")
+	router.HandleFunc("/api/tasks/detail", withRecovery(middleware.AuthRequired(controllers.GetTaskDetail))).Methods("GET")
+	router.HandleFunc("/api/remoteCall", withRecovery(middleware.AuthRequired(controllers.RemoteCall(hub)))).Methods("POST")
+	router.HandleFunc("/api/call", withRecovery(middleware.AuthRequired(controllers.RemoteCall(hub)))).Methods("POST")
 
 	// Video Play
-	router.HandleFunc("/api/video/play", withRecovery(controllers.PlayVideo))
+	router.HandleFunc("/api/video/play", withRecovery(controllers.PlayVideo)).Methods("GET")
 
 	// Metrics API
-	router.HandleFunc("/api/metrics/summary", withRecovery(middleware.AuthRequired(controllers.GetMetricsSummary)))
-	router.HandleFunc("/api/metrics/timeseries", withRecovery(middleware.AuthRequired(controllers.GetTimeSeriesData)))
+	router.HandleFunc("/api/metrics/summary", withRecovery(middleware.AuthRequired(controllers.GetMetricsSummary))).Methods("GET")
+	router.HandleFunc("/api/metrics/timeseries", withRecovery(middleware.AuthRequired(controllers.GetTimeSeriesData))).Methods("GET")
 
 	// WebSocket Stats API
 	router.HandleFunc("/api/ws/stats", withRecovery(middleware.AuthRequired(controllers.GetWSStats(hub)))).Methods("GET")

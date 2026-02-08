@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -284,7 +285,16 @@ func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
 func isHubOriginAllowed(origin string) bool {
 	allowedRaw := strings.TrimSpace(os.Getenv("HUB_ALLOWED_ORIGINS"))
 	if allowedRaw == "" {
-		return true
+		// 默认只允许本地浏览器来源；无 Origin（非浏览器客户端）仍允许。
+		if origin == "" {
+			return true
+		}
+		u, err := url.Parse(origin)
+		if err != nil {
+			return false
+		}
+		host := strings.ToLower(u.Hostname())
+		return host == "localhost" || host == "127.0.0.1" || host == "::1" || strings.HasSuffix(host, ".localhost")
 	}
 	if origin == "" {
 		return false

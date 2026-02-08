@@ -2,14 +2,34 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var JWTSecret = []byte("your-secret-key-change-this-in-prod")
+const InsecureDefaultJWTSecret = "your-secret-key-change-this-in-prod"
+
+var JWTSecret = []byte(InsecureDefaultJWTSecret)
+
+// InitJWTSecretFromEnv loads JWT secret from environment and validates it.
+func InitJWTSecretFromEnv() error {
+	secret := strings.TrimSpace(os.Getenv("HUB_JWT_SECRET"))
+	if secret == "" {
+		return fmt.Errorf("HUB_JWT_SECRET is required")
+	}
+	if len(secret) < 32 {
+		return fmt.Errorf("HUB_JWT_SECRET must be at least 32 characters")
+	}
+	if secret == InsecureDefaultJWTSecret {
+		return fmt.Errorf("HUB_JWT_SECRET must not use insecure default value")
+	}
+	JWTSecret = []byte(secret)
+	return nil
+}
 
 type Claims struct {
 	UserID uint   `json:"user_id"`
