@@ -445,10 +445,10 @@ func (app *App) printTitle() {
 	color.Yellow("    微信视频号下载助手 v%s", app.Cfg.Version)
 	color.Yellow("    项目地址：https://github.com/nobiyou/wx_channel")
 	color.Green("    v%s 更新要点：", app.Cfg.Version)
-	color.Green("    • 核心升级 - 集成 Gopeed 引擎，支持断点续传/高并发")
-	color.Green("    • 限制移除 - 批量下载解除数量限制 (支持10万+)")
-	color.Green("    • 体验增强 - 实时进度显示 (45.2%%)，支持立即取消")
-	color.Green("    • 问题修复 - 取消直接保存csv，优化数据库写入")
+	color.Green("    • 性能质变 - 数据库WAL模式 + 自动清理，拒绝膨胀")
+	color.Green("    • 体验升级 - 积分记录服务端分页，流畅加载海量数据")
+	color.Green("    • 界面重构 - 适配 PrimeVue，完美支持移动端访问")
+	color.Green("    • 底层优化 - 修复内存泄漏，提升长连接稳定性")
 	fmt.Println()
 }
 
