@@ -28,25 +28,27 @@ type BrowseRecord struct {
 
 // DownloadRecord 表示视频下载记录
 type DownloadRecord struct {
-	ID           string    `json:"id"`
-	VideoID      string    `json:"videoId"`
-	Title        string    `json:"title"`
-	Author       string    `json:"author"`
-	CoverURL     string    `json:"coverUrl"` // 封面图片 URL
-	Duration     int64     `json:"duration"`
-	FileSize     int64     `json:"fileSize"`
-	FilePath     string    `json:"filePath"`
-	Format       string    `json:"format"`
-	Resolution   string    `json:"resolution"`
-	Status       string    `json:"status"` // pending, in_progress, completed, failed
-	DownloadTime time.Time `json:"downloadTime"`
-	ErrorMessage string    `json:"errorMessage"`
-	LikeCount    int64     `json:"likeCount"`
-	CommentCount int64     `json:"commentCount"`
-	ForwardCount int64     `json:"forwardCount"`
-	FavCount     int64     `json:"favCount"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+	ID               string    `json:"id"`
+	VideoID          string    `json:"videoId"`
+	Title            string    `json:"title"`
+	Author           string    `json:"author"`
+	CoverURL         string    `json:"coverUrl"` // 封面图片 URL
+	Duration         int64     `json:"duration"`
+	FileSize         int64     `json:"fileSize"`
+	FilePath         string    `json:"filePath"`
+	Format           string    `json:"format"`
+	Resolution       string    `json:"resolution"`
+	Status           string    `json:"status"` // pending, in_progress, completed, failed
+	DownloadTime     time.Time `json:"downloadTime"`
+	ErrorMessage     string    `json:"errorMessage"`
+	LikeCount        int64     `json:"likeCount"`
+	CommentCount     int64     `json:"commentCount"`
+	ForwardCount     int64     `json:"forwardCount"`
+	FavCount         int64     `json:"favCount"`
+	TranscriptPath   string    `json:"transcriptPath"`
+	TranscriptStatus string    `json:"transcriptStatus"` // "", "in_progress", "completed", "failed"
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
 // DownloadStatus 常量
@@ -55,6 +57,14 @@ const (
 	DownloadStatusInProgress = "in_progress"
 	DownloadStatusCompleted  = "completed"
 	DownloadStatusFailed     = "failed"
+)
+
+// TranscriptStatus 常量
+const (
+	TranscriptStatusNone       = ""
+	TranscriptStatusInProgress = "in_progress"
+	TranscriptStatusCompleted  = "completed"
+	TranscriptStatusFailed     = "failed"
 )
 
 // QueueItem 表示下载队列项目
@@ -95,25 +105,41 @@ const (
 
 // Settings 表示应用程序设置
 type Settings struct {
-	DownloadDir        string `json:"downloadDir"`
-	ChunkSize          int64  `json:"chunkSize"`
-	ConcurrentLimit    int    `json:"concurrentLimit"`
-	AutoCleanupEnabled bool   `json:"autoCleanupEnabled"`
-	AutoCleanupDays    int    `json:"autoCleanupDays"`
-	MaxRetries         int    `json:"maxRetries"`
-	Theme              string `json:"theme"`
+	DownloadDir           string `json:"downloadDir"`
+	ChunkSize             int64  `json:"chunkSize"`
+	ConcurrentLimit       int    `json:"concurrentLimit"`
+	AutoCleanupEnabled    bool   `json:"autoCleanupEnabled"`
+	AutoCleanupDays       int    `json:"autoCleanupDays"`
+	MaxRetries            int    `json:"maxRetries"`
+	Theme                 string `json:"theme"`
+	TranscriptionEnabled  bool   `json:"transcriptionEnabled"`
+	TranscriptionAutoRun  bool   `json:"transcriptionAutoRun"`
+	WhisperServerPath     string `json:"whisperServerPath"`
+	WhisperServerPort     int    `json:"whisperServerPort"`
+	FFmpegPath            string `json:"ffmpegPath"`
+	WhisperModelPath      string `json:"whisperModelPath"`
+	TranscriptionLanguage      string `json:"transcriptionLanguage"`
+	DeleteVideoAfterTranscript bool   `json:"deleteVideoAfterTranscript"`
 }
 
 // DefaultSettings 返回默认设置
 func DefaultSettings() *Settings {
 	return &Settings{
-		DownloadDir:        "downloads",
-		ChunkSize:          10 * 1024 * 1024, // 10MB
-		ConcurrentLimit:    3,
-		AutoCleanupEnabled: false,
-		AutoCleanupDays:    30,
-		MaxRetries:         3,
-		Theme:              "light",
+		DownloadDir:           "downloads",
+		ChunkSize:             10 * 1024 * 1024, // 10MB
+		ConcurrentLimit:       3,
+		AutoCleanupEnabled:    false,
+		AutoCleanupDays:       30,
+		MaxRetries:            3,
+		Theme:                 "light",
+		TranscriptionEnabled:  false,
+		TranscriptionAutoRun:  false,
+		WhisperServerPath:     "",
+		WhisperServerPort:     8178,
+		FFmpegPath:            "",
+		WhisperModelPath:      "",
+		TranscriptionLanguage:      "zh",
+		DeleteVideoAfterTranscript: false,
 	}
 }
 

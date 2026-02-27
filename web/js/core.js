@@ -7,7 +7,7 @@
 // Constants and Configuration
 // ============================================
 const STORAGE_KEY_SERVICE_URL = 'wx_channel_service_url';
-const DEFAULT_SERVICE_URL = 'http://127.0.0.1:2025';
+const DEFAULT_SERVICE_URL = `${window.location.protocol}//${window.location.host}`;
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 
 // ============================================
@@ -308,7 +308,14 @@ const ApiClient = {
     // File operations
     async openFolder(filePath) { return await this.request('POST', '/files/open-folder', { path: filePath }); },
     async playVideo(filePath) { return await this.request('POST', '/files/play', { path: filePath }); },
-    async retryDownloadRecord(id) { return await this.request('POST', `/downloads/${id}/retry`); }
+    async retryDownloadRecord(id) { return await this.request('POST', `/downloads/${id}/retry`); },
+
+    // Transcription (语音转文字)
+    async transcribeVideo(id) { return await this.request('POST', `/transcribe/${id}`); },
+    async cancelTranscription(id) { return await this.request('POST', `/transcribe/${id}/cancel`); },
+    async validateTranscriptionTools() { return await this.request('GET', '/transcribe/validate'); },
+    async getTranscript(id) { return await this.request('GET', `/transcribe/${id}/text`); },
+    async openTranscript(id) { return await this.request('POST', `/transcribe/${id}/open`); }
 };
 
 // ============================================
@@ -327,7 +334,9 @@ const WebSocketClient = {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) return;
 
         const serviceUrl = new URL(ConnectionManager.serviceUrl);
-        const wsPort = parseInt(serviceUrl.port || '2025') + 1;
+        const pagePort = window.location.port;
+        // 如果通过代理端口(2025)访问，WS在端口+1；如果直接访问WS服务端口(2026)，WS在同一端口
+        const wsPort = (serviceUrl.port === pagePort) ? parseInt(pagePort) : parseInt(serviceUrl.port || '2025') + 1;
         const wsUrl = `ws://${serviceUrl.hostname}:${wsPort}/ws`;
         
         try {

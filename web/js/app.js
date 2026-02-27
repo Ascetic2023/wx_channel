@@ -2,7 +2,7 @@
     // Constants and Configuration
     // ============================================
     const STORAGE_KEY_SERVICE_URL = 'wx_channel_service_url';
-    const DEFAULT_SERVICE_URL = 'http://127.0.0.1:2025';
+    const DEFAULT_SERVICE_URL = `${window.location.protocol}//${window.location.host}`;
     const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000]; // Exponential backoff
 
     // ============================================

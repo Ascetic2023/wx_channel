@@ -1001,8 +1001,8 @@
                                 <div class="settings-item-desc">远程控制台连接本地服务的地址</div>
                             </div>
                             <div class="settings-item-control" style="width: 280px;">
-                                <input type="text" id="settingServiceUrl" value="http://127.0.0.1:2025"
-                                    placeholder="http://127.0.0.1:2025" onblur="validateServiceUrl()"
+                                <input type="text" id="settingServiceUrl" value=""
+                                    placeholder="默认使用当前访问地址" onblur="validateServiceUrl()"
                                     style="width: 100%;">
                             </div>
                         </div>
@@ -1131,6 +1131,121 @@
                         </svg>
                         保存清理设置
                     </button>
+                </div>
+
+                <!-- Transcription Settings (语音转文字) -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                <line x1="12" y1="19" x2="12" y2="23"/>
+                                <line x1="8" y1="23" x2="16" y2="23"/>
+                            </svg>
+                            语音转文字 (Whisper)
+                        </h3>
+                    </div>
+                    <div class="settings-section">
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">启用语音转文字</div>
+                                <div class="settings-item-desc">使用本地 Whisper 模型将视频语音转为文字</div>
+                            </div>
+                            <div class="settings-item-control">
+                                <div class="toggle-switch" id="transcriptionToggle" onclick="toggleTranscription()"></div>
+                                <input type="checkbox" id="settingTranscriptionEnabled" style="display: none;">
+                            </div>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">下载后自动转写</div>
+                                <div class="settings-item-desc">视频下载完成后自动开始语音识别</div>
+                            </div>
+                            <div class="settings-item-control">
+                                <div class="toggle-switch" id="transcriptionAutoRunToggle" onclick="toggleTranscriptionAutoRun()"></div>
+                                <input type="checkbox" id="settingTranscriptionAutoRun" style="display: none;">
+                            </div>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">转文字后删除视频</div>
+                                <div class="settings-item-desc">语音转文字完成后自动删除原始视频文件</div>
+                            </div>
+                            <div class="settings-item-control">
+                                <div class="toggle-switch" id="deleteAfterTranscriptToggle" onclick="toggleDeleteAfterTranscript()"></div>
+                                <input type="checkbox" id="settingDeleteVideoAfterTranscript" style="display: none;">
+                            </div>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">FFmpeg 路径</div>
+                                <div class="settings-item-desc">ffmpeg.exe 的完整路径（留空则从 PATH 查找）</div>
+                            </div>
+                            <div class="settings-item-control" style="width: 280px;">
+                                <input type="text" id="settingFFmpegPath" placeholder="C:\tools\ffmpeg.exe" style="width: 100%;">
+                            </div>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Whisper Server 路径</div>
+                                <div class="settings-item-desc">whisper-server.exe 的完整路径（留空则从 PATH 查找）</div>
+                            </div>
+                            <div class="settings-item-control" style="width: 280px;">
+                                <input type="text" id="settingWhisperServerPath" placeholder="C:\tools\whisper-server.exe" style="width: 100%;">
+                            </div>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">Server 端口</div>
+                                <div class="settings-item-desc">whisper-server 监听端口（默认 8178）</div>
+                            </div>
+                            <div class="settings-item-control" style="width: 100px;">
+                                <input type="number" id="settingWhisperServerPort" placeholder="8178" value="8178" min="1024" max="65535" style="width: 100%;">
+                            </div>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">模型文件路径</div>
+                                <div class="settings-item-desc">Whisper 模型 .bin 文件路径（推荐 medium 或 large 模型）</div>
+                            </div>
+                            <div class="settings-item-control" style="width: 280px;">
+                                <input type="text" id="settingWhisperModelPath" placeholder="C:\models\ggml-medium.bin" style="width: 100%;">
+                            </div>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <div class="settings-item-label">转写语言</div>
+                                <div class="settings-item-desc">音频的主要语言</div>
+                            </div>
+                            <div class="settings-item-control" style="width: 150px;">
+                                <select id="settingTranscriptionLanguage" style="width: 100%; padding: 6px 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary);">
+                                    <option value="zh">中文</option>
+                                    <option value="en">英文</option>
+                                    <option value="ja">日文</option>
+                                    <option value="ko">韩文</option>
+                                    <option value="auto">自动检测</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 12px;">
+                        <button class="btn btn-primary" onclick="saveTranscriptionSettings()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                <polyline points="17 21 17 13 7 13 7 21" />
+                                <polyline points="7 3 7 8 15 8" />
+                            </svg>
+                            保存转写设置
+                        </button>
+                        <button class="btn btn-secondary" onclick="validateTranscriptionTools()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                            检测工具
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Data Management -->

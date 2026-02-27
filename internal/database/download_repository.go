@@ -28,8 +28,9 @@ func (r *DownloadRecordRepository) Create(record *DownloadRecord) error {
 			id, video_id, title, author, cover_url, duration, file_size, file_path,
 			format, resolution, status, download_time, error_message,
 			like_count, comment_count, forward_count, fav_count,
+			transcript_path, transcript_status,
 			created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := r.db.Exec(query,
 		record.ID, record.VideoID, record.Title, record.Author, record.CoverURL,
@@ -37,6 +38,7 @@ func (r *DownloadRecordRepository) Create(record *DownloadRecord) error {
 		record.Resolution, record.Status, record.DownloadTime,
 		record.ErrorMessage,
 		record.LikeCount, record.CommentCount, record.ForwardCount, record.FavCount,
+		record.TranscriptPath, record.TranscriptStatus,
 		record.CreatedAt, record.UpdatedAt,
 	)
 	if err != nil {
@@ -51,17 +53,20 @@ func (r *DownloadRecordRepository) GetByID(id string) (*DownloadRecord, error) {
 		SELECT id, video_id, title, author, COALESCE(cover_url, '') as cover_url, duration, file_size, file_path,
 			format, resolution, status, download_time, error_message,
 			like_count, comment_count, forward_count, fav_count,
+			COALESCE(transcript_path, '') as transcript_path,
+			COALESCE(transcript_status, '') as transcript_status,
 			created_at, updated_at
 		FROM download_records WHERE id = ?
 	`
 	record := &DownloadRecord{}
-	var filePath, format, resolution, errorMessage, coverURL sql.NullString
+	var filePath, format, resolution, errorMessage, coverURL, transcriptPath, transcriptStatus sql.NullString
 	err := r.db.QueryRow(query, id).Scan(
 		&record.ID, &record.VideoID, &record.Title, &record.Author, &coverURL,
 		&record.Duration, &record.FileSize, &filePath, &format,
 		&resolution, &record.Status, &record.DownloadTime,
 		&errorMessage,
 		&record.LikeCount, &record.CommentCount, &record.ForwardCount, &record.FavCount,
+		&transcriptPath, &transcriptStatus,
 		&record.CreatedAt, &record.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -75,6 +80,8 @@ func (r *DownloadRecordRepository) GetByID(id string) (*DownloadRecord, error) {
 	record.Format = format.String
 	record.Resolution = resolution.String
 	record.ErrorMessage = errorMessage.String
+	record.TranscriptPath = transcriptPath.String
+	record.TranscriptStatus = transcriptStatus.String
 	return record, nil
 }
 
@@ -86,13 +93,16 @@ func (r *DownloadRecordRepository) Update(record *DownloadRecord) error {
 		UPDATE download_records SET
 			video_id = ?, title = ?, author = ?, cover_url = ?, duration = ?, file_size = ?,
 			file_path = ?, format = ?, resolution = ?, status = ?,
-			download_time = ?, error_message = ?, updated_at = ?
+			download_time = ?, error_message = ?,
+			transcript_path = ?, transcript_status = ?,
+			updated_at = ?
 		WHERE id = ?
 	`
 	result, err := r.db.Exec(query,
 		record.VideoID, record.Title, record.Author, record.CoverURL, record.Duration,
 		record.FileSize, record.FilePath, record.Format, record.Resolution,
 		record.Status, record.DownloadTime, record.ErrorMessage,
+		record.TranscriptPath, record.TranscriptStatus,
 		record.UpdatedAt, record.ID,
 	)
 	if err != nil {
@@ -220,6 +230,8 @@ func (r *DownloadRecordRepository) List(params *FilterParams) (*PagedResult[Down
 		SELECT id, video_id, title, author, COALESCE(cover_url, '') as cover_url, duration, file_size, file_path,
 			format, resolution, status, download_time, error_message,
 			like_count, comment_count, forward_count, fav_count,
+			COALESCE(transcript_path, '') as transcript_path,
+			COALESCE(transcript_status, '') as transcript_status,
 			created_at, updated_at
 		FROM download_records
 		%s
@@ -237,13 +249,14 @@ func (r *DownloadRecordRepository) List(params *FilterParams) (*PagedResult[Down
 	var records []DownloadRecord
 	for rows.Next() {
 		var record DownloadRecord
-		var filePath, format, resolution, errorMessage, coverURL sql.NullString
+		var filePath, format, resolution, errorMessage, coverURL, transcriptPath, transcriptStatus sql.NullString
 		err := rows.Scan(
 			&record.ID, &record.VideoID, &record.Title, &record.Author, &coverURL,
 			&record.Duration, &record.FileSize, &filePath, &format,
 			&resolution, &record.Status, &record.DownloadTime,
 			&errorMessage,
 			&record.LikeCount, &record.CommentCount, &record.ForwardCount, &record.FavCount,
+			&transcriptPath, &transcriptStatus,
 			&record.CreatedAt, &record.UpdatedAt,
 		)
 		if err != nil {
@@ -254,6 +267,8 @@ func (r *DownloadRecordRepository) List(params *FilterParams) (*PagedResult[Down
 		record.Format = format.String
 		record.Resolution = resolution.String
 		record.ErrorMessage = errorMessage.String
+		record.TranscriptPath = transcriptPath.String
+		record.TranscriptStatus = transcriptStatus.String
 		records = append(records, record)
 	}
 
@@ -308,6 +323,8 @@ func (r *DownloadRecordRepository) GetRecent(limit int) ([]DownloadRecord, error
 		SELECT id, video_id, title, author, COALESCE(cover_url, '') as cover_url, duration, file_size, file_path,
 			format, resolution, status, download_time, error_message,
 			like_count, comment_count, forward_count, fav_count,
+			COALESCE(transcript_path, '') as transcript_path,
+			COALESCE(transcript_status, '') as transcript_status,
 			created_at, updated_at
 		FROM download_records
 		ORDER BY download_time DESC
@@ -323,13 +340,14 @@ func (r *DownloadRecordRepository) GetRecent(limit int) ([]DownloadRecord, error
 	var records []DownloadRecord
 	for rows.Next() {
 		var record DownloadRecord
-		var filePath, format, resolution, errorMessage, coverURL sql.NullString
+		var filePath, format, resolution, errorMessage, coverURL, transcriptPath, transcriptStatus sql.NullString
 		err := rows.Scan(
 			&record.ID, &record.VideoID, &record.Title, &record.Author, &coverURL,
 			&record.Duration, &record.FileSize, &filePath, &format,
 			&resolution, &record.Status, &record.DownloadTime,
 			&errorMessage,
 			&record.LikeCount, &record.CommentCount, &record.ForwardCount, &record.FavCount,
+			&transcriptPath, &transcriptStatus,
 			&record.CreatedAt, &record.UpdatedAt,
 		)
 		if err != nil {
@@ -340,6 +358,8 @@ func (r *DownloadRecordRepository) GetRecent(limit int) ([]DownloadRecord, error
 		record.Format = format.String
 		record.Resolution = resolution.String
 		record.ErrorMessage = errorMessage.String
+		record.TranscriptPath = transcriptPath.String
+		record.TranscriptStatus = transcriptStatus.String
 		records = append(records, record)
 	}
 
@@ -365,6 +385,8 @@ func (r *DownloadRecordRepository) GetAll() ([]DownloadRecord, error) {
 		SELECT id, video_id, title, author, COALESCE(cover_url, '') as cover_url, duration, file_size, file_path,
 			format, resolution, status, download_time, error_message,
 			like_count, comment_count, forward_count, fav_count,
+			COALESCE(transcript_path, '') as transcript_path,
+			COALESCE(transcript_status, '') as transcript_status,
 			created_at, updated_at
 		FROM download_records
 		ORDER BY download_time DESC
@@ -379,13 +401,14 @@ func (r *DownloadRecordRepository) GetAll() ([]DownloadRecord, error) {
 	var records []DownloadRecord
 	for rows.Next() {
 		var record DownloadRecord
-		var filePath, format, resolution, errorMessage, coverURL sql.NullString
+		var filePath, format, resolution, errorMessage, coverURL, transcriptPath, transcriptStatus sql.NullString
 		err := rows.Scan(
 			&record.ID, &record.VideoID, &record.Title, &record.Author, &coverURL,
 			&record.Duration, &record.FileSize, &filePath, &format,
 			&resolution, &record.Status, &record.DownloadTime,
 			&errorMessage,
 			&record.LikeCount, &record.CommentCount, &record.ForwardCount, &record.FavCount,
+			&transcriptPath, &transcriptStatus,
 			&record.CreatedAt, &record.UpdatedAt,
 		)
 		if err != nil {
@@ -396,6 +419,8 @@ func (r *DownloadRecordRepository) GetAll() ([]DownloadRecord, error) {
 		record.Format = format.String
 		record.Resolution = resolution.String
 		record.ErrorMessage = errorMessage.String
+		record.TranscriptPath = transcriptPath.String
+		record.TranscriptStatus = transcriptStatus.String
 		records = append(records, record)
 	}
 
@@ -423,6 +448,8 @@ func (r *DownloadRecordRepository) GetByIDs(ids []string) ([]DownloadRecord, err
 		SELECT id, video_id, title, author, COALESCE(cover_url, '') as cover_url, duration, file_size, file_path,
 			format, resolution, status, download_time, error_message,
 			like_count, comment_count, forward_count, fav_count,
+			COALESCE(transcript_path, '') as transcript_path,
+			COALESCE(transcript_status, '') as transcript_status,
 			created_at, updated_at
 		FROM download_records
 		WHERE id IN (%s)
@@ -438,13 +465,14 @@ func (r *DownloadRecordRepository) GetByIDs(ids []string) ([]DownloadRecord, err
 	var records []DownloadRecord
 	for rows.Next() {
 		var record DownloadRecord
-		var filePath, format, resolution, errorMessage, coverURL sql.NullString
+		var filePath, format, resolution, errorMessage, coverURL, transcriptPath, transcriptStatus sql.NullString
 		err := rows.Scan(
 			&record.ID, &record.VideoID, &record.Title, &record.Author, &coverURL,
 			&record.Duration, &record.FileSize, &filePath, &format,
 			&resolution, &record.Status, &record.DownloadTime,
 			&errorMessage,
 			&record.LikeCount, &record.CommentCount, &record.ForwardCount, &record.FavCount,
+			&transcriptPath, &transcriptStatus,
 			&record.CreatedAt, &record.UpdatedAt,
 		)
 		if err != nil {
@@ -455,6 +483,8 @@ func (r *DownloadRecordRepository) GetByIDs(ids []string) ([]DownloadRecord, err
 		record.Format = format.String
 		record.Resolution = resolution.String
 		record.ErrorMessage = errorMessage.String
+		record.TranscriptPath = transcriptPath.String
+		record.TranscriptStatus = transcriptStatus.String
 		records = append(records, record)
 	}
 
@@ -491,6 +521,16 @@ func (r *DownloadRecordRepository) GetChartData(days int) ([]string, []int64, er
 	}
 
 	return labels, values, nil
+}
+
+// UpdateTranscriptStatus 更新转写状态和路径
+func (r *DownloadRecordRepository) UpdateTranscriptStatus(id, status, transcriptPath string) error {
+	query := `UPDATE download_records SET transcript_status = ?, transcript_path = ?, updated_at = ? WHERE id = ?`
+	_, err := r.db.Exec(query, status, transcriptPath, time.Now(), id)
+	if err != nil {
+		return fmt.Errorf("failed to update transcript status: %w", err)
+	}
+	return nil
 }
 
 // GetTotalFileSize 返回所有已完成下载的总文件大小

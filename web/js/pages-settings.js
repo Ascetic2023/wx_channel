@@ -51,6 +51,22 @@ async function loadSettings() {
                 document.getElementById('settingAutoCleanup').checked = settings.autoCleanupEnabled || false;
                 document.getElementById('settingAutoCleanupDays').value = settings.autoCleanupDays || 30;
                 toggleAutoCleanupDays();
+
+                // Transcription settings
+                const transcriptionEnabled = settings.transcriptionEnabled || false;
+                const transcriptionAutoRun = settings.transcriptionAutoRun || false;
+                document.getElementById('settingTranscriptionEnabled').checked = transcriptionEnabled;
+                document.getElementById('transcriptionToggle').classList.toggle('active', transcriptionEnabled);
+                document.getElementById('settingTranscriptionAutoRun').checked = transcriptionAutoRun;
+                document.getElementById('transcriptionAutoRunToggle').classList.toggle('active', transcriptionAutoRun);
+                const deleteAfterTranscript = settings.deleteVideoAfterTranscript || false;
+                document.getElementById('settingDeleteVideoAfterTranscript').checked = deleteAfterTranscript;
+                document.getElementById('deleteAfterTranscriptToggle').classList.toggle('active', deleteAfterTranscript);
+                document.getElementById('settingWhisperServerPath').value = settings.whisperServerPath || '';
+                document.getElementById('settingWhisperServerPort').value = settings.whisperServerPort || 8178;
+                document.getElementById('settingFFmpegPath').value = settings.ffmpegPath || '';
+                document.getElementById('settingWhisperModelPath').value = settings.whisperModelPath || '';
+                document.getElementById('settingTranscriptionLanguage').value = settings.transcriptionLanguage || 'zh';
             }
         } catch (e) {
             console.error('Failed to load settings:', e);
@@ -345,6 +361,94 @@ async function saveCleanupSettings() {
         showMessage('清理设置已保存', 'success');
     } catch (e) {
         showMessage('保存失败: ' + e.message, 'error');
+    }
+}
+
+// ============================================
+// Transcription Settings Functions (语音转文字)
+// ============================================
+
+// Toggle transcription enable
+function toggleTranscription() {
+    const toggle = document.getElementById('transcriptionToggle');
+    const checkbox = document.getElementById('settingTranscriptionEnabled');
+    if (toggle && checkbox) {
+        checkbox.checked = !checkbox.checked;
+        toggle.classList.toggle('active', checkbox.checked);
+    }
+}
+
+// Toggle transcription auto run
+function toggleTranscriptionAutoRun() {
+    const toggle = document.getElementById('transcriptionAutoRunToggle');
+    const checkbox = document.getElementById('settingTranscriptionAutoRun');
+    if (toggle && checkbox) {
+        checkbox.checked = !checkbox.checked;
+        toggle.classList.toggle('active', checkbox.checked);
+    }
+}
+
+// Toggle delete video after transcript
+function toggleDeleteAfterTranscript() {
+    const toggle = document.getElementById('deleteAfterTranscriptToggle');
+    const checkbox = document.getElementById('settingDeleteVideoAfterTranscript');
+    if (toggle && checkbox) {
+        checkbox.checked = !checkbox.checked;
+        toggle.classList.toggle('active', checkbox.checked);
+    }
+}
+
+// Save transcription settings
+async function saveTranscriptionSettings() {
+    if (ConnectionManager.getStatus() !== 'connected') {
+        showMessage('请先连接到本地服务', 'error');
+        return;
+    }
+
+    try {
+        const currentSettings = await ApiClient.getSettings();
+        const settings = {
+            ...currentSettings.data,
+            transcriptionEnabled: document.getElementById('settingTranscriptionEnabled').checked,
+            transcriptionAutoRun: document.getElementById('settingTranscriptionAutoRun').checked,
+            deleteVideoAfterTranscript: document.getElementById('settingDeleteVideoAfterTranscript').checked,
+            whisperServerPath: document.getElementById('settingWhisperServerPath').value.trim(),
+            whisperServerPort: parseInt(document.getElementById('settingWhisperServerPort').value) || 8178,
+            ffmpegPath: document.getElementById('settingFFmpegPath').value.trim(),
+            whisperModelPath: document.getElementById('settingWhisperModelPath').value.trim(),
+            transcriptionLanguage: document.getElementById('settingTranscriptionLanguage').value
+        };
+
+        await ApiClient.updateSettings(settings);
+        showMessage('转写设置已保存', 'success');
+    } catch (e) {
+        showMessage('保存失败: ' + e.message, 'error');
+    }
+}
+
+// Validate transcription tools
+async function validateTranscriptionTools() {
+    if (ConnectionManager.getStatus() !== 'connected') {
+        showMessage('请先连接到本地服务', 'error');
+        return;
+    }
+
+    try {
+        // Save current settings first
+        await saveTranscriptionSettings();
+        showMessage('正在检测工具...', 'info');
+        const result = await ApiClient.validateTranscriptionTools();
+        if (result.success && result.data) {
+            if (result.data.valid) {
+                showMessage(result.data.message || 'FFmpeg 和 Whisper 工具检测通过', 'success');
+            } else {
+                showMessage(result.data.message || '工具检测失败', 'error');
+            }
+        } else {
+            showMessage('检测失败: ' + (result.error || '未知错误'), 'error');
+        }
+    } catch (e) {
+        showMessage('检测失败: ' + e.message, 'error');
     }
 }
 

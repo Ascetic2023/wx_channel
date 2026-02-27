@@ -229,6 +229,15 @@ ALTER TABLE download_records ADD COLUMN forward_count INTEGER DEFAULT 0;
 ALTER TABLE download_records ADD COLUMN fav_count INTEGER DEFAULT 0;
 `,
 	},
+	{
+		Version:     9,
+		Description: "Add transcription columns to download_records table",
+		Up: `
+-- Add transcript_path and transcript_status columns for speech-to-text feature
+ALTER TABLE download_records ADD COLUMN transcript_path TEXT DEFAULT '';
+ALTER TABLE download_records ADD COLUMN transcript_status TEXT DEFAULT '';
+`,
+	},
 }
 
 // runMigrations 执行所有待处理的迁移

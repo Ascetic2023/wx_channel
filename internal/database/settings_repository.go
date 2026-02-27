@@ -19,13 +19,21 @@ func NewSettingsRepository() *SettingsRepository {
 
 // 设置键
 const (
-	SettingKeyDownloadDir        = "download_dir"
-	SettingKeyChunkSize          = "chunk_size"
-	SettingKeyConcurrentLimit    = "concurrent_limit"
-	SettingKeyAutoCleanupEnabled = "auto_cleanup_enabled"
-	SettingKeyAutoCleanupDays    = "auto_cleanup_days"
-	SettingKeyMaxRetries         = "max_retries"
-	SettingKeyTheme              = "theme"
+	SettingKeyDownloadDir            = "download_dir"
+	SettingKeyChunkSize              = "chunk_size"
+	SettingKeyConcurrentLimit        = "concurrent_limit"
+	SettingKeyAutoCleanupEnabled     = "auto_cleanup_enabled"
+	SettingKeyAutoCleanupDays        = "auto_cleanup_days"
+	SettingKeyMaxRetries             = "max_retries"
+	SettingKeyTheme                  = "theme"
+	SettingKeyTranscriptionEnabled   = "transcription_enabled"
+	SettingKeyTranscriptionAutoRun   = "transcription_auto_run"
+	SettingKeyWhisperServerPath      = "whisper_server_path"
+	SettingKeyWhisperServerPort      = "whisper_server_port"
+	SettingKeyFFmpegPath             = "ffmpeg_path"
+	SettingKeyWhisperModelPath       = "whisper_model_path"
+	SettingKeyTranscriptionLanguage      = "transcription_language"
+	SettingKeyDeleteVideoAfterTranscript = "delete_video_after_transcript"
 )
 
 // Get 根据键获取设置值
@@ -123,6 +131,32 @@ func (r *SettingsRepository) Load() (*Settings, error) {
 	if v, ok := settingsMap[SettingKeyTheme]; ok && v != "" {
 		settings.Theme = v
 	}
+	if v, ok := settingsMap[SettingKeyTranscriptionEnabled]; ok {
+		settings.TranscriptionEnabled = v == "true"
+	}
+	if v, ok := settingsMap[SettingKeyTranscriptionAutoRun]; ok {
+		settings.TranscriptionAutoRun = v == "true"
+	}
+	if v, ok := settingsMap[SettingKeyWhisperServerPath]; ok {
+		settings.WhisperServerPath = v
+	}
+	if v, ok := settingsMap[SettingKeyWhisperServerPort]; ok && v != "" {
+		if port, err := strconv.Atoi(v); err == nil {
+			settings.WhisperServerPort = port
+		}
+	}
+	if v, ok := settingsMap[SettingKeyFFmpegPath]; ok {
+		settings.FFmpegPath = v
+	}
+	if v, ok := settingsMap[SettingKeyWhisperModelPath]; ok {
+		settings.WhisperModelPath = v
+	}
+	if v, ok := settingsMap[SettingKeyTranscriptionLanguage]; ok && v != "" {
+		settings.TranscriptionLanguage = v
+	}
+	if v, ok := settingsMap[SettingKeyDeleteVideoAfterTranscript]; ok {
+		settings.DeleteVideoAfterTranscript = v == "true"
+	}
 
 	return settings, nil
 }
@@ -144,13 +178,21 @@ func (r *SettingsRepository) Save(settings *Settings) error {
 
 	// Save each setting
 	settingsMap := map[string]string{
-		SettingKeyDownloadDir:        settings.DownloadDir,
-		SettingKeyChunkSize:          strconv.FormatInt(settings.ChunkSize, 10),
-		SettingKeyConcurrentLimit:    strconv.Itoa(settings.ConcurrentLimit),
-		SettingKeyAutoCleanupEnabled: strconv.FormatBool(settings.AutoCleanupEnabled),
-		SettingKeyAutoCleanupDays:    strconv.Itoa(settings.AutoCleanupDays),
-		SettingKeyMaxRetries:         strconv.Itoa(settings.MaxRetries),
-		SettingKeyTheme:              settings.Theme,
+		SettingKeyDownloadDir:           settings.DownloadDir,
+		SettingKeyChunkSize:             strconv.FormatInt(settings.ChunkSize, 10),
+		SettingKeyConcurrentLimit:       strconv.Itoa(settings.ConcurrentLimit),
+		SettingKeyAutoCleanupEnabled:    strconv.FormatBool(settings.AutoCleanupEnabled),
+		SettingKeyAutoCleanupDays:       strconv.Itoa(settings.AutoCleanupDays),
+		SettingKeyMaxRetries:            strconv.Itoa(settings.MaxRetries),
+		SettingKeyTheme:                 settings.Theme,
+		SettingKeyTranscriptionEnabled:  strconv.FormatBool(settings.TranscriptionEnabled),
+		SettingKeyTranscriptionAutoRun:  strconv.FormatBool(settings.TranscriptionAutoRun),
+		SettingKeyWhisperServerPath:     settings.WhisperServerPath,
+		SettingKeyWhisperServerPort:     strconv.Itoa(settings.WhisperServerPort),
+		SettingKeyFFmpegPath:            settings.FFmpegPath,
+		SettingKeyWhisperModelPath:      settings.WhisperModelPath,
+		SettingKeyTranscriptionLanguage:      settings.TranscriptionLanguage,
+		SettingKeyDeleteVideoAfterTranscript: strconv.FormatBool(settings.DeleteVideoAfterTranscript),
 	}
 
 	for key, value := range settingsMap {
@@ -195,6 +237,14 @@ func (r *SettingsRepository) Validate(settings *Settings) error {
 	validThemes := map[string]bool{"light": true, "dark": true}
 	if !validThemes[settings.Theme] {
 		return fmt.Errorf("theme must be 'light' or 'dark'")
+	}
+
+	// Validate transcription language
+	if settings.TranscriptionLanguage != "" {
+		validLanguages := map[string]bool{"zh": true, "en": true, "ja": true, "ko": true, "auto": true}
+		if !validLanguages[settings.TranscriptionLanguage] {
+			return fmt.Errorf("transcription language must be one of: zh, en, ja, ko, auto")
+		}
 	}
 
 	return nil

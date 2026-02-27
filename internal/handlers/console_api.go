@@ -25,14 +25,15 @@ import (
 
 // ConsoleAPIHandler 处理 Web 控制台的 REST API 请求
 type ConsoleAPIHandler struct {
-	browseService   *services.BrowseHistoryService
-	downloadService *services.DownloadRecordService
-	queueService    *services.QueueService
-	settingsRepo    *database.SettingsRepository
-	statsService    *services.StatisticsService
-	exportService   *services.ExportService
-	searchService   *services.SearchService
-	wsHub           *websocket.Hub
+	browseService        *services.BrowseHistoryService
+	downloadService      *services.DownloadRecordService
+	queueService         *services.QueueService
+	settingsRepo         *database.SettingsRepository
+	statsService         *services.StatisticsService
+	exportService        *services.ExportService
+	searchService        *services.SearchService
+	transcriptionService *services.TranscriptionService
+	wsHub                *websocket.Hub
 }
 
 const maxJSONBodyBytes = 8 << 20 // 8MB
@@ -40,14 +41,15 @@ const maxJSONBodyBytes = 8 << 20 // 8MB
 // NewConsoleAPIHandler 创建一个新的 ConsoleAPIHandler
 func NewConsoleAPIHandler(cfg *config.Config, wsHub *websocket.Hub) *ConsoleAPIHandler {
 	return &ConsoleAPIHandler{
-		browseService:   services.NewBrowseHistoryService(),
-		downloadService: services.NewDownloadRecordService(),
-		queueService:    services.NewQueueService(),
-		settingsRepo:    database.NewSettingsRepository(),
-		statsService:    services.NewStatisticsService(),
-		exportService:   services.NewExportService(),
-		searchService:   services.NewSearchService(),
-		wsHub:           wsHub,
+		browseService:        services.NewBrowseHistoryService(),
+		downloadService:      services.NewDownloadRecordService(),
+		queueService:         services.NewQueueService(),
+		settingsRepo:         database.NewSettingsRepository(),
+		statsService:         services.NewStatisticsService(),
+		exportService:        services.NewExportService(),
+		searchService:        services.NewSearchService(),
+		transcriptionService: services.NewTranscriptionService(),
+		wsHub:                wsHub,
 	}
 }
 
@@ -1712,4 +1714,104 @@ func (h *ConsoleAPIHandler) HandleVideoPlay(w http.ResponseWriter, r *http.Reque
 		// 流式复制数据到客户端
 		io.Copy(w, upstreamResp.Body)
 	}
+}
+
+// HandleTranscribeAPI 处理转写相关的 API 请求
+func (h *ConsoleAPIHandler) HandleTranscribeAPI(w http.ResponseWriter, r *http.Request) {
+	// 处理 OPTIONS 请求
+	if r.Method == "OPTIONS" {
+		h.setCORSHeaders(w, r)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	path := strings.TrimPrefix(r.URL.Path, "/api/transcribe")
+	path = strings.TrimPrefix(path, "/")
+
+	// GET /api/transcribe/validate
+	if path == "validate" && r.Method == "GET" {
+		h.handleTranscribeValidate(w, r)
+		return
+	}
+
+	// 提取 ID 和 action
+	parts := strings.SplitN(path, "/", 2)
+	if len(parts) == 0 || parts[0] == "" {
+		h.sendError(w, r, http.StatusBadRequest, "record ID required")
+		return
+	}
+
+	id := parts[0]
+	action := ""
+	if len(parts) > 1 {
+		action = parts[1]
+	}
+
+	switch {
+	case action == "" && r.Method == "POST":
+		h.handleTranscribeStart(w, r, id)
+	case action == "cancel" && r.Method == "POST":
+		h.handleTranscribeCancel(w, r, id)
+	case action == "text" && r.Method == "GET":
+		h.handleGetTranscript(w, r, id)
+	case action == "open" && r.Method == "POST":
+		h.handleOpenTranscript(w, r, id)
+	default:
+		h.sendError(w, r, http.StatusNotFound, "endpoint not found")
+	}
+}
+
+// handleTranscribeValidate 检测 FFmpeg/Whisper 工具可用性
+func (h *ConsoleAPIHandler) handleTranscribeValidate(w http.ResponseWriter, r *http.Request) {
+	valid, message := h.transcriptionService.ValidateTools()
+	h.sendSuccess(w, r, map[string]interface{}{
+		"valid":   valid,
+		"message": message,
+	})
+}
+
+// handleTranscribeStart 手动触发转写
+func (h *ConsoleAPIHandler) handleTranscribeStart(w http.ResponseWriter, r *http.Request, id string) {
+	h.transcriptionService.TranscribeAsync(id)
+	h.sendSuccessMessage(w, r, "转写已开始")
+}
+
+// handleTranscribeCancel 取消正在进行的转写
+func (h *ConsoleAPIHandler) handleTranscribeCancel(w http.ResponseWriter, r *http.Request, id string) {
+	if err := h.transcriptionService.CancelTranscription(id); err != nil {
+		h.sendError(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.sendSuccessMessage(w, r, "转写已取消")
+}
+
+// handleGetTranscript 获取转写文本内容
+func (h *ConsoleAPIHandler) handleGetTranscript(w http.ResponseWriter, r *http.Request, id string) {
+	text, err := h.transcriptionService.GetTranscript(id)
+	if err != nil {
+		h.sendError(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.sendSuccess(w, r, map[string]string{"text": text})
+}
+
+// handleOpenTranscript 用默认程序打开转写文件
+func (h *ConsoleAPIHandler) handleOpenTranscript(w http.ResponseWriter, r *http.Request, id string) {
+	txtPath, err := h.transcriptionService.GetTranscriptPath(id)
+	if err != nil {
+		h.sendError(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if _, err := os.Stat(txtPath); os.IsNotExist(err) {
+		h.sendError(w, r, http.StatusNotFound, "转写文件不存在")
+		return
+	}
+
+	if err := openWithDefaultApp(txtPath); err != nil {
+		h.sendError(w, r, http.StatusInternalServerError, fmt.Sprintf("打开文件失败: %v", err))
+		return
+	}
+
+	h.sendSuccessMessage(w, r, "已打开转写文件")
 }

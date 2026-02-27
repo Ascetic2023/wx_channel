@@ -25,12 +25,13 @@ import (
 
 // BatchHandler 批量下载处理器
 type BatchHandler struct {
-	downloadService *services.DownloadRecordService
-	gopeedService   *services.GopeedService // Injected Gopeed Service
-	mu              sync.RWMutex
-	tasks           []BatchTask
-	running         bool
-	cancelFunc      context.CancelFunc // 用于取消时立即中断下载
+	downloadService      *services.DownloadRecordService
+	gopeedService        *services.GopeedService // Injected Gopeed Service
+	transcriptionService *services.TranscriptionService
+	mu                   sync.RWMutex
+	tasks                []BatchTask
+	running              bool
+	cancelFunc           context.CancelFunc // 用于取消时立即中断下载
 }
 
 // BatchTask 批量下载任务
@@ -137,11 +138,12 @@ func (t *BatchTask) GetCover() string {
 }
 
 // NewBatchHandler 创建批量下载处理器
-func NewBatchHandler(cfg *config.Config, gopeedService *services.GopeedService) *BatchHandler {
+func NewBatchHandler(cfg *config.Config, gopeedService *services.GopeedService, transcriptionService *services.TranscriptionService) *BatchHandler {
 	return &BatchHandler{
-		downloadService: services.NewDownloadRecordService(),
-		gopeedService:   gopeedService,
-		tasks:           make([]BatchTask, 0),
+		downloadService:      services.NewDownloadRecordService(),
+		gopeedService:        gopeedService,
+		transcriptionService: transcriptionService,
+		tasks:                make([]BatchTask, 0),
 	}
 }
 
@@ -512,6 +514,12 @@ func (h *BatchHandler) downloadVideo(ctx context.Context, task *BatchTask, downl
 		if err == nil {
 			// 下载成功，保存到下载记录数据库
 			h.saveDownloadRecord(task, filePath, "completed")
+
+			// 自动语音转文字
+			if h.transcriptionService != nil && h.transcriptionService.IsAutoRunEnabled() {
+				h.transcriptionService.TranscribeAsync(task.ID)
+			}
+
 			return nil
 		}
 

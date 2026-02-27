@@ -154,6 +154,25 @@ function renderDownloadTable() {
                                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                             </svg>
                         </button>
+                        ${record.transcriptStatus === 'completed' ? `
+                        <button class="table-action-btn" onclick="viewTranscriptContent('${escapeHtml(record.id)}')" title="查看转写文本">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
+                        </button>
+                        ` : record.transcriptStatus === 'in_progress' ? `
+                        <button class="table-action-btn" disabled title="转写中..." style="opacity: 0.5;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            </svg>
+                        </button>
+                        ` : `
+                        <button class="table-action-btn" onclick="transcribeVideo('${escapeHtml(record.id)}')" title="语音转文字">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            </svg>
+                        </button>
+                        `}
                         ` : ''}
                         ${record.status === 'failed' ? `
                         <button class="table-action-btn" onclick="retryDownload('${escapeHtml(record.id)}')" title="重试下载">
@@ -396,7 +415,19 @@ function renderDownloadDetailPanel(record) {
                 <div class="download-detail-error" style="background: #fef0f0; color: var(--danger-color); padding: 10px 12px; border-radius: 4px; font-size: 13px;">${escapeHtml(record.errorMessage)}</div>
             </div>
             ` : ''}
-            
+
+            ${record.transcriptStatus === 'completed' ? `
+            <div style="margin-top: 16px;">
+                <span class="video-detail-meta-label" style="display: block; margin-bottom: 8px;">转写文本</span>
+                <div style="background: var(--bg-hover); padding: 10px 12px; border-radius: 4px; font-size: 13px; color: var(--primary-color); cursor: pointer;" onclick="viewTranscriptContent('${escapeHtml(record.id)}')">点击查看转写文本内容</div>
+            </div>
+            ` : record.transcriptStatus === 'in_progress' ? `
+            <div style="margin-top: 16px;">
+                <span class="video-detail-meta-label" style="display: block; margin-bottom: 8px;">转写状态</span>
+                <span class="download-status in-progress">转写中...</span>
+            </div>
+            ` : ''}
+
             <div class="video-detail-actions">
                 ${record.status === 'completed' && record.filePath ? `
                 <button class="btn btn-primary" onclick="playDownloadedVideo('${escapeHtml(record.id)}')">
@@ -411,6 +442,25 @@ function renderDownloadDetailPanel(record) {
                     </svg>
                     打开文件夹
                 </button>
+                ${record.transcriptStatus === 'completed' ? `
+                <button class="btn btn-secondary" onclick="viewTranscriptContent('${escapeHtml(record.id)}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    查看文本
+                </button>
+                ` : record.transcriptStatus !== 'in_progress' ? `
+                <button class="btn btn-secondary" onclick="transcribeVideo('${escapeHtml(record.id)}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    </svg>
+                    语音转文字
+                </button>
+                ` : `
+                <button class="btn btn-secondary" disabled style="opacity: 0.5;">
+                    转写中...
+                </button>
+                `}
                 ` : ''}
                 ${record.status === 'failed' ? `
                 <button class="btn btn-primary" onclick="retryDownload('${escapeHtml(record.id)}')">
@@ -1659,3 +1709,67 @@ document.addEventListener('click', function(e) {
         }
     }
 });
+
+// ============================================
+// Transcription Functions (语音转文字)
+// ============================================
+
+// Trigger transcription for a video
+async function transcribeVideo(id) {
+    try {
+        showMessage('正在开始语音转文字...', 'info');
+        const result = await ApiClient.transcribeVideo(id);
+        if (result.success) {
+            showMessage('转写已开始，请稍候...', 'success');
+            // Refresh records after a delay to show updated status
+            setTimeout(() => loadDownloadRecords(), 3000);
+        } else {
+            showMessage('转写失败: ' + (result.error || '未知错误'), 'error');
+        }
+    } catch (e) {
+        showMessage('转写失败: ' + e.message, 'error');
+    }
+}
+
+// Open transcript file with default app
+async function openTranscript(id) {
+    try {
+        const result = await ApiClient.openTranscript(id);
+        if (!result.success) {
+            showMessage('打开文件失败: ' + (result.error || '未知错误'), 'error');
+        }
+    } catch (e) {
+        showMessage('打开文件失败: ' + e.message, 'error');
+    }
+}
+
+// View transcript text content in a modal
+async function viewTranscriptContent(id) {
+    try {
+        const result = await ApiClient.getTranscript(id);
+        if (result.success && result.data && result.data.text) {
+            const text = result.data.text;
+            // Show in a simple modal overlay
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+            overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+            const modal = document.createElement('div');
+            modal.style.cssText = 'background:var(--card-bg,#fff);border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);';
+            modal.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h3 style="margin:0;font-size:16px;">转写文本</h3>
+                    <button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-secondary);">&times;</button>
+                </div>
+                <pre style="white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.6;color:var(--text-primary);margin:0;font-family:inherit;">${escapeHtml(text)}</pre>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+        } else {
+            showMessage('获取文本失败: ' + (result.error || '未知错误'), 'error');
+        }
+    } catch (e) {
+        showMessage('获取文本失败: ' + e.message, 'error');
+    }
+}

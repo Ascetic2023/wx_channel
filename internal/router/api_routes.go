@@ -115,6 +115,9 @@ func (r *APIRouter) registerRoutes() {
 	// 文件操作
 	r.mux.HandleFunc("/api/files/", r.consoleHandler.HandleFilesAPI)
 
+	// 转写 API
+	r.mux.HandleFunc("/api/transcribe/", r.consoleHandler.HandleTranscribeAPI)
+
 	// 系统信息
 
 	// 控制台 API - 导出功能

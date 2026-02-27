@@ -59,10 +59,11 @@ type App struct {
 	StaticFileHandler *handlers.StaticFileHandler
 
 	// 服务
-	WSHub          *websocket.Hub
-	SearchService  *api.SearchService
-	GopeedService  *services.GopeedService // Add GopeedService
-	CloudConnector *cloud.Connector
+	WSHub                *websocket.Hub
+	SearchService        *api.SearchService
+	GopeedService        *services.GopeedService // Add GopeedService
+	TranscriptionService *services.TranscriptionService
+	CloudConnector       *cloud.Connector
 
 	// 路由器
 	APIRouter *router.APIRouter
@@ -143,6 +144,9 @@ func (app *App) Run() {
 		sig := <-signalChan
 		color.Red("\n正在关闭服务...%v\n\n", sig)
 		utils.LogSystemShutdown(fmt.Sprintf("收到信号: %v", sig))
+		if app.TranscriptionService != nil {
+			app.TranscriptionService.StopServer()
+		}
 		database.Close()
 		if os_env == "darwin" {
 			proxy.DisableProxyInMacOS(proxy.ProxySettings{
@@ -203,8 +207,11 @@ func (app *App) Run() {
 	app.RecordHandler = handlers.NewRecordHandler(app.Cfg)
 	app.CommentHandler = handlers.NewCommentHandler(app.Cfg)
 
-	// BatchHandler (Injecting GopeedService)
-	app.BatchHandler = handlers.NewBatchHandler(app.Cfg, app.GopeedService)
+	// TranscriptionService
+	app.TranscriptionService = services.NewTranscriptionService()
+
+	// BatchHandler (Injecting GopeedService and TranscriptionService)
+	app.BatchHandler = handlers.NewBatchHandler(app.Cfg, app.GopeedService, app.TranscriptionService)
 
 	// ScriptHandler
 	app.ScriptHandler = handlers.NewScriptHandler(
@@ -301,6 +308,7 @@ func (app *App) Run() {
 
 	wsPort := app.Port + 1
 	go app.startWebSocketServer(wsPort)
+	utils.Info("Web Console: http://localhost:%d/console (内网可访问)", wsPort)
 
 	// 启动 Prometheus 监控服务器（如果启用）
 	if app.Cfg.MetricsEnabled {
@@ -488,6 +496,15 @@ func (app *App) startWebSocketServer(wsPort int) {
 		})
 	})
 
+	// 提供 Web Console 页面（支持内网其他机器访问）
+	mux.HandleFunc("/console", serveConsole)
+	mux.HandleFunc("/console/", serveConsole)
+
+	// 提供静态资源文件（js/css/docs/图片等）
+	mux.HandleFunc("/js/", serveStaticFile)
+	mux.HandleFunc("/css/", serveStaticFile)
+	mux.HandleFunc("/docs/", serveStaticFile)
+
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", wsPort),
 		Handler: mux,
@@ -497,6 +514,44 @@ func (app *App) startWebSocketServer(wsPort int) {
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		utils.Warn("WebSocket服务启动失败: %v", err)
 	}
+}
+
+// serveConsole 提供 Web Console 页面
+func serveConsole(w http.ResponseWriter, r *http.Request) {
+	content, err := os.ReadFile("web/console.html")
+	if err != nil {
+		http.Error(w, "Console not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(content)
+}
+
+// serveStaticFile 提供静态资源文件
+func serveStaticFile(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	filePath := "web" + path
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	switch {
+	case strings.HasSuffix(path, ".js"):
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	case strings.HasSuffix(path, ".css"):
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	case strings.HasSuffix(path, ".png"):
+		w.Header().Set("Content-Type", "image/png")
+	case strings.HasSuffix(path, ".svg"):
+		w.Header().Set("Content-Type", "image/svg+xml")
+	case strings.HasSuffix(path, ".ico"):
+		w.Header().Set("Content-Type", "image/x-icon")
+	case strings.HasSuffix(path, ".md"):
+		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	}
+	w.Write(content)
 }
 
 // startMetricsServer 启动 Prometheus 监控服务器
